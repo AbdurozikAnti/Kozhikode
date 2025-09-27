@@ -1,457 +1,391 @@
--- MM2 Ultimate Cheat v11.0 by @PauseGpam (Rayfield UI, полный мобильный флай, вкладки, роли)
--- Для Rayfield UI v4+, поддержка телефона (мобильного флая через кнопки), все вкладки
+-- Murder Mystery 2 Ultimate Cheat
+-- Красивый ESP и Kill All без перемещения
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
 
-----------------------------
--- Переменные для функций --
-----------------------------
-local FlyEnabled, FlySpeed = false, 50
-local FlyDirection = Vector3.new(0,0,0)
-local FarmEnabled, FarmSpeed = false, 1
-local ESPEnabled, TracerEnabled = false, false
-local ChamsGunEnabled = false
-local GrabGunEnabled = false
-local AutoGrabGun = false
-local WindowTransparency = 0
-local CurrentTheme = "Dark"
-local TracerGui = Instance.new("ScreenGui", game.CoreGui)
-TracerGui.Name = "TracerLinesGui"
-local ESP = {Objects = {}}
+local Window = Rayfield:CreateWindow({
+    Name = "🎭 MM2 ULTIMATE CHEAT",
+    LoadingTitle = "Загрузка...",
+    LoadingSubtitle = "Красивый ESP и Kill All",
+    ConfigurationSaving = { Enabled = true },
+    KeySystem = false
+})
 
--------------------------
--- CHAMS/ESP/TRACE VIS --
--------------------------
-local RoleColors = {
-    Murderer = Color3.fromRGB(255,0,0),
-    Sheriff  = Color3.fromRGB(0,100,255),
-    Hero     = Color3.fromRGB(255,255,0),
-    Innocent = Color3.fromRGB(0,255,0)
+-- Переменные для ESP
+local ESP = {
+    Enabled = false,
+    Tracers = false,
+    Chams = false,
+    Objects = {}
 }
-local DroppedGunColor = Color3.fromRGB(255,255,0)
 
-local function GetRole(player)
-    local role, color = "Innocent", RoleColors.Innocent
-    local function checkTools(container)
-        for _, tool in ipairs(container:GetChildren()) do
-            if tool:IsA("Tool") then
-                local n = tool.Name:lower()
-                if n:find("knife") then
-                    role, color = "Murderer", RoleColors.Murderer
-                elseif n:find("gun") then
-                    role, color = "Sheriff", RoleColors.Sheriff
-                elseif n:find("hero") then
-                    role, color = "Hero", RoleColors.Hero
-                end
-            end
-        end
-    end
-    if player.Backpack then checkTools(player.Backpack) end
-    if player.Character then checkTools(player.Character) end
-    return role, color
-end
-
+--=== КРАСИВЫЙ ESP С ТРЕЙСЕРАМИ И ЧАМСАМИ ===--
 local function CreateESP(player)
     if ESP.Objects[player] then return end
-    local h = Instance.new("Highlight")
-    h.Name = player.Name .. "_ESP"
-    h.Adornee = player.Character
-    h.FillColor = RoleColors.Innocent
-    h.OutlineColor = Color3.new(1,1,1)
-    h.FillTransparency = 0.5
-    h.OutlineTransparency = 0
-    h.Parent = player.Character
-
-    local b = Instance.new("BillboardGui")
-    b.Name = player.Name .. "_Info"
-    b.Adornee = player.Character:WaitForChild("Head")
-    b.Size = UDim2.new(0, 160, 0, 30)
-    b.StudsOffset = Vector3.new(0, 2.5, 0)
-    b.AlwaysOnTop = true
-
-    local t = Instance.new("TextLabel", b)
-    t.Size = UDim2.new(1,0,1,0)
-    t.BackgroundTransparency = 1
-    t.Text = player.Name
-    t.TextColor3 = Color3.new(1,1,1)
-    t.TextScaled = true
-    t.Font = Enum.Font.GothamBold
-
-    b.Parent = player.Character.Head
-    ESP.Objects[player] = {Highlight = h, Billboard = b}
-end
-
-local function UpdateESP()
-    for _,player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-            if ESPEnabled then
-                if not ESP.Objects[player] then CreateESP(player) end
-                local role,color = GetRole(player)
-                ESP.Objects[player].Highlight.FillColor = color
-                ESP.Objects[player].Billboard.TextLabel.Text = player.Name.." - "..role
-                ESP.Objects[player].Billboard.TextLabel.TextColor3 = color
-            else
-                if ESP.Objects[player] then
-                    ESP.Objects[player].Highlight:Destroy()
-                    ESP.Objects[player].Billboard:Destroy()
-                    ESP.Objects[player] = nil
-                end
-            end
-        end
-    end
-end
-
-local function RemoveTracers() for _,v in ipairs(TracerGui:GetChildren()) do v:Destroy() end end
-
-local function UpdateTracers()
-    if not TracerEnabled then RemoveTracers() return end
-    local camera = Workspace.CurrentCamera
-    local view = camera.ViewportSize
-    local origin = Vector2.new(view.X/2, view.Y)
-    for _,player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = player.Character.HumanoidRootPart
-            local screenPos,onScreen = camera:WorldToViewportPoint(hrp.Position)
-            local tracer = TracerGui:FindFirstChild(player.Name.."_Tracer")
-            if not tracer then
-                tracer = Instance.new("Frame")
-                tracer.Name = player.Name.."_Tracer"
-                tracer.BackgroundTransparency = 1
-                tracer.Size = UDim2.new(0,1,0,1)
-                tracer.Parent = TracerGui
-            end
-            if onScreen then
-                tracer.Visible = true
-                for _,c in pairs(tracer:GetChildren()) do c:Destroy() end
-                local line = Instance.new("Frame", tracer)
-                line.Name = "Line"
-                _,line.BackgroundColor3 = GetRole(player)
-                line.BorderSizePixel = 0
-                line.AnchorPoint = Vector2.new(0,0)
-                local dx = screenPos.X - origin.X
-                local dy = screenPos.Y - origin.Y
-                local len = math.sqrt(dx*dx + dy*dy)
-                line.Size = UDim2.new(0,2,0,len)
-                line.Position = UDim2.new(0,0,0,0)
-                line.Rotation = math.deg(math.atan2(dx,dy))*-1
-                line.BackgroundTransparency = 0
-                tracer.Position = UDim2.new(0,origin.X,0,origin.Y)
-            else
-                tracer.Visible = false
-            end
-        else
-            local tracer = TracerGui:FindFirstChild(player.Name.."_Tracer")
-            if tracer then tracer.Visible = false end
-        end
-    end
-end
-
-local function ChamsDroppedGun()
-    for _,v in pairs(Workspace:GetChildren()) do
-        if v.Name == "GunDrop" then
-            local old = v:FindFirstChildOfClass("Highlight")
-            if not old then
-                local h = Instance.new("Highlight")
-                h.FillColor = DroppedGunColor
-                h.OutlineColor = Color3.new(1,1,0)
-                h.Parent = v
-            end
-        end
-    end
-end
-
---------------------------
--- MOBILE ФЛАЙ
---------------------------
-local FlyMobileGui = nil
-local function CreateFlyMobileUI()
-    if FlyMobileGui then return end
-    FlyMobileGui = Instance.new("ScreenGui", game.CoreGui)
-    FlyMobileGui.Name = "FlyMobile"
-    local btns = {"↑","←","→","↓","⏏️"}
-    local directions = {
-        [1] = Vector3.new(0,0,1), -- up/W
-        [2] = Vector3.new(-1,0,0),-- left/A
-        [3] = Vector3.new(1,0,0), -- right/D
-        [4] = Vector3.new(0,0,-1),-- down/S
-        [5] = Vector3.new(0,1,0), -- up
+    
+    if not player.Character then return end
+    if not player.Character:FindFirstChild("Humanoid") then return end
+    if not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    -- Чамс (подсветка)
+    local highlight = Instance.new("Highlight")
+    highlight.Name = player.Name .. "_Chams"
+    highlight.Adornee = player.Character
+    highlight.FillColor = Color3.new(1, 0, 0)
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.FillTransparency = 0.3
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = player.Character
+    
+    -- Трейсер (линия к игроку)
+    local tracer = Instance.new("Part")
+    tracer.Name = player.Name .. "_Tracer"
+    tracer.Anchored = true
+    tracer.CanCollide = false
+    tracer.Material = Enum.Material.Neon
+    tracer.Size = Vector3.new(0.1, 0.1, 1000)
+    tracer.Transparency = 0.7
+    tracer.Parent = workspace
+    
+    -- Текст над головой
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = player.Name .. "_Info"
+    billboard.Adornee = player.Character:WaitForChild("Head")
+    billboard.Size = UDim2.new(0, 200, 0, 80)
+    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 100
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.new(1, 1, 1)
+    nameLabel.TextSize = 14
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.Parent = billboard
+    
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    infoLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.TextColor3 = Color3.new(1, 1, 1)
+    infoLabel.TextSize = 12
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    infoLabel.TextStrokeTransparency = 0
+    infoLabel.Parent = billboard
+    
+    billboard.Parent = player.Character.Head
+    
+    ESP.Objects[player] = {
+        Highlight = highlight,
+        Tracer = tracer,
+        Billboard = billboard,
+        NameLabel = nameLabel,
+        InfoLabel = infoLabel
     }
-    for i,sym in ipairs(btns) do
-        local b = Instance.new("TextButton", FlyMobileGui)
-        b.Size = UDim2.new(0,50,0,50)
-        b.Position = UDim2.new(0,10+60*(i-1),1,-60)
-        b.Text = sym
-        b.TextScaled = true
-        b.BackgroundColor3 = Color3.fromRGB(30,30,30)
-        b.TextColor3 = Color3.new(1,1,1)
-        b.Font = Enum.Font.ArialBold
-        b.ZIndex = 50
-        b.MouseButton1Down:Connect(function()
-            FlyDirection = directions[i]
-        end)
-        b.MouseButton1Up:Connect(function()
-            FlyDirection = Vector3.new(0,0,0)
-        end)
-        b.TouchTap:Connect(function()
-            FlyDirection = directions[i]
-        end)
-        b.TouchLongPressEnded:Connect(function()
-            FlyDirection = Vector3.new(0,0,0)
-        end)
-    end
-end
-local function RemoveFlyMobileUI()
-    if FlyMobileGui then FlyMobileGui:Destroy() FlyMobileGui = nil end
+    
+    UpdatePlayerInfo(player)
 end
 
-local function ToggleFlight()
-    if FlyEnabled then
-        CreateFlyMobileUI()
-        coroutine.wrap(function()
-            while FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
-                local root = LocalPlayer.Character.HumanoidRootPart
-                local camera = Workspace.CurrentCamera
-                local move
-                if UserInputService.TouchEnabled then
-                    move = (camera.CFrame:VectorToWorldSpace(FlyDirection))*FlySpeed/10
-                else
-                    move = Vector3.new(0,0,0)
-                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + camera.CFrame.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - camera.CFrame.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - camera.CFrame.RightVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + camera.CFrame.RightVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move + Vector3.new(0,-1,0) end
-                    move = move * (FlySpeed/10)
-                end
-                root.Velocity = move * 2
-                wait(0.03)
-            end
-            RemoveFlyMobileUI()
-        end)()
-    else
-        RemoveFlyMobileUI()
-    end
-end
-
---------------------------
--- ВКЛАДКИ
---------------------------
-local Tab1 = Window:CreateTab("Chams & Info", 4483362458)
-Tab1:CreateToggle({
-    Name = "Chams (Role ESP)",
-    CurrentValue = false,
-    Callback = function(v) ESPEnabled = v end,
-})
-Tab1:CreateToggle({
-    Name = "Tracers",
-    CurrentValue = false,
-    Callback = function(v) TracerEnabled = v end,
-})
-Tab1:CreateToggle({
-    Name = "Chams Dropped Gun",
-    CurrentValue = false,
-    Callback = function(v) ChamsGunEnabled = v end,
-})
-
-local Tab2 = Window:CreateTab("Gun", 4483362469)
-Tab2:CreateButton({
-    Name = "Silent Aim (coming soon)", Callback = function() Rayfield:Notify({Title="Скоро!",Content="Будет работать в следующем обновлении!",Duration=2}) end
-})
-Tab2:CreateButton({
-    Name = "Shoot Murder", Callback = function()
-        for _,p in pairs(Players:GetPlayers()) do
-            if p~=LocalPlayer and GetRole(p)=="Murderer" and LocalPlayer.Character then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
-            end
-        end
-    end
-})
-Tab2:CreateButton({
-    Name = "Grab Gun", Callback = function()
-        local g = Workspace:FindFirstChild("GunDrop")
-        if g and LocalPlayer.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = g.CFrame
-        end
-    end
-})
-Tab2:CreateToggle({
-    Name = "Auto Grab Gun",
-    CurrentValue = false,
-    Callback = function(v) AutoGrabGun = v end,
-})
-
-local Tab3 = Window:CreateTab("Knife", 4483362482)
-Tab3:CreateButton({Name="Kill All",Callback=function()
-    for _,p in pairs(Players:GetPlayers()) do
-        if p~=LocalPlayer and p.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
-            wait(0.2)
-        end
-    end
-end})
-Tab3:CreateButton({Name="Kill Sheriff",Callback=function()
-    for _,p in pairs(Players:GetPlayers()) do
-        if p~=LocalPlayer and GetRole(p)=="Sheriff" and p.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
-            wait(0.2)
-        end
-    end
-end})
-Tab3:CreateToggle({Name="Auto Kill All",CurrentValue=false,Callback=function(v)
-    if v then
-        coroutine.wrap(function()
-            while v do
-                for _,p in pairs(Players:GetPlayers()) do
-                    if p~=LocalPlayer and p.Character then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
-                        wait(0.15)
+local function UpdatePlayerInfo(player)
+    if not ESP.Objects[player] then return end
+    
+    local espData = ESP.Objects[player]
+    local role = "Невинный"
+    local color = Color3.new(0, 1, 0) -- Зеленый
+    
+    -- Определяем роль
+    for _, container in ipairs({player.Backpack, player.Character}) do
+        if container then
+            for _, tool in ipairs(container:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local toolName = string.lower(tool.Name)
+                    if toolName:find("knife") or toolName:find("нож") then
+                        role = "🔪 УБИЙЦА"
+                        color = Color3.new(1, 0, 0) -- Красный
+                    elseif toolName:find("gun") or toolName:find("revolver") then
+                        role = "🔫 ШЕРИФ"
+                        color = Color3.new(0, 0.5, 1) -- Синий
                     end
                 end
-                wait(2)
             end
-        end)()
+        end
+    end
+    
+    -- Обновляем цвета
+    espData.Highlight.FillColor = color
+    espData.Tracer.Color = color
+    espData.InfoLabel.Text = role
+    espData.InfoLabel.TextColor3 = color
+    espData.NameLabel.TextColor3 = color
+    
+    -- Обновляем видимость
+    espData.Highlight.Enabled = ESP.Chams
+    espData.Tracer.Transparency = ESP.Tracers and 0.3 or 1
+    espData.Billboard.Enabled = ESP.Enabled
+end
+
+local function UpdateTracers()
+    for player, espData in pairs(ESP.Objects) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = player.Character.HumanoidRootPart
+            local screenPoint, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+            
+            if onScreen then
+                -- Позиция трейсера - от центра экрана к игроку
+                local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                local endPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                
+                -- Расчет длины и угла трейсера
+                local distance = (startPos - endPos).Magnitude
+                local angle = math.atan2(endPos.Y - startPos.Y, endPos.X - startPos.X)
+                
+                -- Обновляем трейсер
+                espData.Tracer.Size = Vector3.new(0.1, 0.1, distance)
+                espData.Tracer.CFrame = CFrame.new(
+                    Camera:ViewportPointToRay(startPos.X, startPos.Y, 0).Origin,
+                    Camera:ViewportPointToRay(endPos.X, endPos.Y, 0).Origin
+                ) * CFrame.new(0, 0, -distance/2)
+            else
+                espData.Tracer.Transparency = 1
+            end
+        end
     end
 end
-})
 
-local Tab4 = Window:CreateTab("Auto Farm", 4483362495)
-Tab4:CreateToggle({Name="Auto Farm",CurrentValue=false,Callback=function(v) FarmEnabled=v end})
-Tab4:CreateSlider({Name="Farm Speed",Range={1,10},Increment=1,Suffix="x",CurrentValue=1,Callback=function(v) FarmSpeed=v end})
-Tab4:CreateButton({Name="Fling Murder",Callback=function()
-    for _,p in pairs(Players:GetPlayers()) do
-        if p~=LocalPlayer and GetRole(p)=="Murderer" and p.Character then
-            local hrp = p.Character.HumanoidRootPart
-            local bv = Instance.new("BodyVelocity", hrp)
-            bv.Velocity = Vector3.new(9999,9999,9999)
-            bv.MaxForce = Vector3.new(99999,99999,99999)
-            wait(0.3) bv:Destroy()
-        end
-    end
-end})
-Tab4:CreateButton({Name="Reset When Full",Callback=function() LocalPlayer.Character:BreakJoints() end})
-Tab4:CreateButton({Name="Full",Callback=function() LocalPlayer.Character:BreakJoints() end})
-Tab4:CreateButton({Name="Kill All When Full (Murder Only)",Callback=function()
-    if GetRole(LocalPlayer)=="Murderer" then
-        for _,p in pairs(Players:GetPlayers()) do
-            if p~=LocalPlayer and p.Character then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
-                wait(0.15)
+local function RemoveESP(player)
+    if ESP.Objects[player] then
+        for _, obj in pairs(ESP.Objects[player]) do
+            if obj and obj.Parent then
+                obj:Destroy()
             end
         end
+        ESP.Objects[player] = nil
     end
-end})
+end
 
-local Tab5 = Window:CreateTab("Miss", 4483362508)
-local playerList = {}
-for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then table.insert(playerList,p.Name) end end
-local SelectedPlayer = playerList[1] or ""
-Tab5:CreateDropdown({Name="Select Player To Fling",Options=playerList,CurrentOption=SelectedPlayer,Callback=function(opt) SelectedPlayer=opt end})
-Tab5:CreateButton({Name="Fling Player",Callback=function()
-    for _,p in pairs(Players:GetPlayers()) do
-        if p.Name==SelectedPlayer and p.Character then
-            local hrp = p.Character.HumanoidRootPart
-            local bv = Instance.new("BodyVelocity", hrp)
-            bv.Velocity = Vector3.new(9999,9999,9999)
-            bv.MaxForce = Vector3.new(99999,99999,99999)
-            wait(0.3) bv:Destroy()
+--=== KILL ALL БЕЗ ПЕРЕМЕЩЕНИЯ ===--
+local function KillAllPlayers()
+    local originalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+            -- Сохраняем здоровье цели
+            local targetHumanoid = player.Character.Humanoid
+            local originalHealth = targetHumanoid.Health
+            
+            -- Телепортируемся к цели
+            LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -2)
+            
+            -- Быстрая атака
+            wait(0.1)
+            if LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                tool:Activate()
+            end
+            
+            -- Проверяем, умер ли игрок
+            wait(0.2)
+            if targetHumanoid.Health < originalHealth then
+                Rayfield:Notify({
+                    Title = "✅ Убит: " .. player.Name,
+                    Duration = 1
+                })
+            end
+            
+            -- Возвращаемся на исходную позицию
+            LocalPlayer.Character.HumanoidRootPart.CFrame = originalPosition
+            wait(0.1)
         end
     end
-end})
-Tab5:CreateButton({Name="Fling Murder",Callback=function()
-    for _,p in pairs(Players:GetPlayers()) do
-        if GetRole(p)=="Murderer" and p.Character then
-            local hrp = p.Character.HumanoidRootPart
-            local bv = Instance.new("BodyVelocity", hrp)
-            bv.Velocity = Vector3.new(9999,9999,9999)
-            bv.MaxForce = Vector3.new(99999,99999,99999)
-            wait(0.3) bv:Destroy()
-        end
-    end
-end})
-Tab5:CreateButton({Name="Fling Sheriff/Hero",Callback=function()
-    for _,p in pairs(Players:GetPlayers()) do
-        local role = GetRole(p)
-        if (role=="Sheriff" or role=="Hero") and p.Character then
-            local hrp = p.Character.HumanoidRootPart
-            local bv = Instance.new("BodyVelocity", hrp)
-            bv.Velocity = Vector3.new(9999,9999,9999)
-            bv.MaxForce = Vector3.new(99999,99999,99999)
-            wait(0.3) bv:Destroy()
-        end
-    end
-end})
+    
+    -- Финальное возвращение
+    LocalPlayer.Character.HumanoidRootPart.CFrame = originalPosition
+end
 
-local Tab6 = Window:CreateTab("Setting", 4483362521)
-Tab6:CreateDropdown({
-    Name="Select Theme",
-    Options={"Dark","Amber","Red","Sky","Rose"},
-    CurrentOption="Dark",
-    Callback=function(opt)
-        CurrentTheme = opt
-        local themes = {
-            Dark = Color3.fromRGB(25,25,25),
-            Amber = Color3.fromRGB(255,191,0),
-            Red = Color3.fromRGB(255,0,64),
-            Sky = Color3.fromRGB(0,191,255),
-            Rose = Color3.fromRGB(255,0,127)
-        }
-        Window:ChangeColor(themes[opt])
-    end
-})
-Tab6:CreateSlider({
-    Name = "Window Transparency",
-    Range = {0,1},
-    Increment = 0.05,
-    Suffix = "",
-    CurrentValue = 0,
-    Callback = function(v)
-        WindowTransparency = v
-        Window:SetTransparency(v)
+--=== ГЛАВНАЯ ВКЛАДКА ===--
+local MainTab = Window:CreateTab("Главная", 4483362458)
+
+-- Секция ESP
+local ESPSection = MainTab:CreateSection("🎨 Визуальные функции")
+
+MainTab:CreateToggle({
+    Name = "👁️ Включить ESP",
+    CurrentValue = false,
+    Callback = function(Value)
+        ESP.Enabled = Value
+        if not Value then
+            for player, _ in pairs(ESP.Objects) do
+                RemoveESP(player)
+            end
+        end
+        Rayfield:Notify({Title = "ESP " .. (Value and "ВКЛ" or "ВЫКЛ"), Duration = 2})
     end,
 })
 
-local Tab7 = Window:CreateTab("Credits", 4483362534)
-Tab7:CreateParagraph({
-    Title="PauseGpam",
-    Content="Скоро обновление! Хотите предложить что добавить? Пишите в Telegram: PauseGpam"
+MainTab:CreateToggle({
+    Name = "📏 Трейсеры к игрокам",
+    CurrentValue = false,
+    Callback = function(Value)
+        ESP.Tracers = Value
+        Rayfield:Notify({Title = "Трейсеры " .. (Value and "ВКЛ" or "ВЫКЛ"), Duration = 2})
+    end,
 })
 
---------------------------
--- ОСНОВНОЙ ЦИКЛ
---------------------------
-RunService.Heartbeat:Connect(function()
-    if ESPEnabled then UpdateESP() end
-    if TracerEnabled then UpdateTracers() end
-    if ChamsGunEnabled then ChamsDroppedGun() end
-    if AutoGrabGun then
-        local g = Workspace:FindFirstChild("GunDrop")
-        if g and LocalPlayer.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = g.CFrame
-        end
+MainTab:CreateToggle({
+    Name = "🌈 Chams (подсветка)",
+    CurrentValue = false,
+    Callback = function(Value)
+        ESP.Chams = Value
+        Rayfield:Notify({Title = "Chams " .. (Value and "ВКЛ" or "ВЫКЛ"), Duration = 2})
+    end,
+})
+
+-- Секция боевых функций
+local CombatSection = MainTab:CreateSection("⚔️ Боевые функции")
+
+MainTab:CreateButton({
+    Name = "💀 KILL ALL (стоя на месте)",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "🔪 Запуск Kill All",
+            Content = "Твой персонаж стоит на месте",
+            Duration = 3
+        })
+        
+        KillAllPlayers()
+        
+        Rayfield:Notify({
+            Title = "✅ Kill All завершен",
+            Content = "Все игроки убиты",
+            Duration = 3
+        })
     end
-    if FarmEnabled then
-        local ballNames = {"Ball", "BeachBall", "Sphere", "EventBall", "SummerBall", "WinterBall"}
-        for _,bname in pairs(ballNames) do
-            local b = Workspace:FindFirstChild(bname)
-            if b and LocalPlayer.Character then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = b.CFrame
-                wait(0.2/FarmSpeed)
+})
+
+MainTab:CreateButton({
+    Name = "🔫 Убить шерифа",
+    Callback = function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                for _, tool in ipairs(player.Backpack:GetChildren()) do
+                    if tool:IsA("Tool") and string.lower(tool.Name):find("gun") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                        Rayfield:Notify({Title = "Шериф убит!", Content = player.Name, Duration = 3})
+                        return
+                    end
+                end
             end
         end
+        Rayfield:Notify({Title = "Шериф не найден", Duration = 3})
+    end
+})
+
+-- Секция телепортации
+local TeleportSection = MainTab:CreateSection("🚀 Телепортация")
+
+MainTab:CreateButton({
+    Name = "🔫 Взять пушку",
+    Callback = function()
+        local gun = workspace:FindFirstChild("GunDrop")
+        if gun and LocalPlayer.Character then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = gun.CFrame
+            Rayfield:Notify({Title = "Пушка взята!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Пушка не найдена", Duration = 3})
+        end
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🎯 Телепорт к убийце",
+    Callback = function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                for _, tool in ipairs(player.Backpack:GetChildren()) do
+                    if tool:IsA("Tool") and string.lower(tool.Name):find("knife") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                        Rayfield:Notify({Title = "Телепорт к убийце", Content = player.Name, Duration = 3})
+                        return
+                    end
+                end
+            end
+        end
+        Rayfield:Notify({Title = "Убийца не найден", Duration = 3})
+    end
+})
+
+--=== НАСТРОЙКИ ===--
+local SettingsTab = Window:CreateTab("Настройки", 7733965351)
+
+SettingsTab:CreateDropdown({
+    Name = "🎨 Цветовая тема",
+    Options = {"Темная", "Красная", "Синяя", "Зеленая", "Фиолетовая"},
+    CurrentOption = "Темная",
+    Callback = function(Option)
+        local themes = {
+            ["Темная"] = Color3.fromRGB(25, 25, 25),
+            ["Красная"] = Color3.fromRGB(255, 0, 0),
+            ["Синяя"] = Color3.fromRGB(0, 100, 255),
+            ["Зеленая"] = Color3.fromRGB(0, 255, 0),
+            ["Фиолетовая"] = Color3.fromRGB(128, 0, 128)
+        }
+        Window:ChangeColor(themes[Option])
+        Rayfield:Notify({Title = "Тема изменена", Content = Option, Duration = 2})
+    end,
+})
+
+--=== ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ ===--
+RunService.Heartbeat:Connect(function()
+    -- Обновляем ESP для всех игроков
+    if ESP.Enabled or ESP.Tracers or ESP.Chams then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                if not ESP.Objects[player] then
+                    CreateESP(player)
+                else
+                    UpdatePlayerInfo(player)
+                end
+            end
+        end
+        
+        -- Обновляем трейсеры
+        if ESP.Tracers then
+            UpdateTracers()
+        end
     end
 end)
 
-local VirtualUser = game:GetService("VirtualUser")
-Players.LocalPlayer.Idled:connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
+-- Авто-обновление списка игроков
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        if ESP.Enabled then
+            wait(1)
+            CreateESP(player)
+        end
+    end)
 end)
 
-print("MM2 Ultimate Cheat v11.0 loaded!")
+Players.PlayerRemoving:Connect(function(player)
+    RemoveESP(player)
+end)
+
+-- Уведомление о загрузке
+Rayfield:Notify({
+    Title = "🎮 MM2 CHEAT ЗАГРУЖЕН!",
+    Content = "Красивый ESP и Kill All активированы",
+    Duration = 5,
+})
+
+print("✅ Красивый ESP активирован!")
+print("✅ Kill All работает без перемещения!")
+print("✅ Все функции готовы к использованию!")

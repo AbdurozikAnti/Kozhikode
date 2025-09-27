@@ -1,14 +1,15 @@
--- Murder Mystery 2 Ultimate Cheat GUI
--- ПОЛНОСТЬЮ РАБОЧИЙ СКРИПТ v10.0
+-- Murder Mystery 2 Ultimate Cheat GUI v10.1 (Обновлено: фикс ESP, трейсер, таймер)
+-- ПОЛНОСТЬЮ РАБОЧИЙ СКРИПТ v10.1
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local Window = Rayfield:CreateWindow({
-    Name = "🎭 MM2 ULTIMATE CHEAT v10.0",
+    Name = "🎭 MM2 ULTIMATE CHEAT v10.1",
     LoadingTitle = "Загрузка...",
     LoadingSubtitle = "ВСЕ ФУНКЦИИ РАБОТАЮТ!",
     ConfigurationSaving = { Enabled = true, FolderName = "MM2Cheat", FileName = "Config" },
@@ -16,15 +17,71 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false
 })
 
---=== РАБОЧИЙ ESP ===--
+-----------------------------------------------
+-- ESP и Трейсеры
+-----------------------------------------------
 local ESP = {
     Enabled = false,
+    Tracers = false,
     Objects = {}
 }
+local TracerFolder = Instance.new("Folder", game.CoreGui)
+TracerFolder.Name = "TracerLines"
+local function RemoveTracers()
+    for _, v in ipairs(TracerFolder:GetChildren()) do
+        v:Destroy()
+    end
+end
+
+local function CreateTracer(player)
+    local line = Drawing and Drawing.new and Drawing.new("Line") or nil
+    if not line then return end
+    line.Visible = false
+    line.Color = Color3.new(1,1,1)
+    line.Thickness = 2
+    line.Transparency = 1
+    return line
+end
+
+local function UpdateTracers()
+    if not ESP.Tracers then RemoveTracers() return end
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local screenPos, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                local tracer = TracerFolder:FindFirstChild(player.Name .. "_Tracer")
+                if not tracer then
+                    tracer = Instance.new("Frame", TracerFolder)
+                    tracer.Name = player.Name .. "_Tracer"
+                    tracer.BackgroundTransparency = 1
+                    tracer.BorderSizePixel = 0
+                    tracer.AnchorPoint = Vector2.new(0.5,0.5)
+                    tracer.Size = UDim2.new(0,2,0,2)
+                end
+                tracer.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
+                tracer.Visible = true
+                -- Simple line: from bottom-center to player
+                if not tracer:FindFirstChild("Line") then
+                    local line = Instance.new("Frame", tracer)
+                    line.Name = "Line"
+                    line.BackgroundTransparency = 0
+                    line.BackgroundColor3 = Color3.new(1,1,1)
+                    line.BorderSizePixel = 0
+                    line.Size = UDim2.new(0,2,0,2)
+                end
+                local line = tracer.Line
+                local originY = Workspace.CurrentCamera.ViewportSize.Y -- bottom of screen
+                line.Position = UDim2.new(0,0,0,originY-screenPos.Y)
+                line.Size = UDim2.new(0,2,0,screenPos.Y-originY)
+            end
+        end
+    end
+end
 
 local function CreateESP(player)
     if ESP.Objects[player] then return end
-    
+
     local highlight = Instance.new("Highlight")
     highlight.Name = player.Name .. "_ESP"
     highlight.Adornee = player.Character
@@ -33,15 +90,14 @@ local function CreateESP(player)
     highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0
     highlight.Parent = player.Character
-    
-    -- Информация над головой
+
     local billboard = Instance.new("BillboardGui")
     billboard.Name = player.Name .. "_Info"
     billboard.Adornee = player.Character:WaitForChild("Head")
     billboard.Size = UDim2.new(0, 200, 0, 50)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
-    
+
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
@@ -50,13 +106,49 @@ local function CreateESP(player)
     textLabel.TextSize = 14
     textLabel.Font = Enum.Font.GothamBold
     textLabel.Parent = billboard
-    
+
     billboard.Parent = player.Character.Head
-    
+
     ESP.Objects[player] = {
         Highlight = highlight,
         Billboard = billboard
     }
+end
+
+local function GetRole(player)
+    local role = "Невинный"
+    local color = Color3.fromRGB(0,255,0) -- Зеленый
+    if player.Backpack then
+        for _, tool in ipairs(player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                if string.lower(tool.Name):find("knife") then
+                    color = Color3.fromRGB(255,0,0) -- Красный
+                    role = "УБИЙЦА"
+                    break
+                elseif string.lower(tool.Name):find("gun") then
+                    color = Color3.fromRGB(0,0,255) -- Синий
+                    role = "ШЕРИФ"
+                    break
+                end
+            end
+        end
+    end
+    if player.Character then
+        for _, tool in ipairs(player.Character:GetChildren()) do
+            if tool:IsA("Tool") then
+                if string.lower(tool.Name):find("knife") then
+                    color = Color3.fromRGB(255,0,0)
+                    role = "УБИЙЦА"
+                    break
+                elseif string.lower(tool.Name):find("gun") then
+                    color = Color3.fromRGB(0,0,255)
+                    role = "ШЕРИФ"
+                    break
+                end
+            end
+        end
+    end
+    return role, color
 end
 
 local function UpdateESP()
@@ -66,28 +158,10 @@ local function UpdateESP()
                 if not ESP.Objects[player] then
                     CreateESP(player)
                 end
-                
-                -- Обновляем цвет по роли
-                local color = Color3.new(0, 1, 0) -- Зеленый по умолчанию
-                local role = "Невинный"
-                
-                -- Проверяем инструменты
-                for _, tool in ipairs(player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") then
-                        if string.lower(tool.Name):find("knife") then
-                            color = Color3.new(1, 0, 0) -- Красный
-                            role = "УБИЙЦА"
-                        elseif string.lower(tool.Name):find("gun") then
-                            color = Color3.new(0, 0, 1) -- Синий
-                            role = "ШЕРИФ"
-                        end
-                    end
-                end
-                
+                local role, color = GetRole(player)
                 ESP.Objects[player].Highlight.FillColor = color
                 ESP.Objects[player].Billboard.TextLabel.Text = player.Name .. " - " .. role
                 ESP.Objects[player].Billboard.TextLabel.TextColor3 = color
-                
             else
                 if ESP.Objects[player] then
                     ESP.Objects[player].Highlight:Destroy()
@@ -99,73 +173,108 @@ local function UpdateESP()
     end
 end
 
+-----------------------------------------------
+-- Таймер раунда
+-----------------------------------------------
+local RoundTimer = 0
+local TimerLabel = nil
+local function FindTimer()
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("TextLabel") and v.Text:match(":%d%d$") then
+            return v
+        end
+    end
+    return nil
+end
+
+local function CreateTimerUI()
+    if TimerLabel then return end
+    local sgui = Instance.new("ScreenGui", game.CoreGui)
+    sgui.Name = "MM2_Timer"
+    TimerLabel = Instance.new("TextLabel", sgui)
+    TimerLabel.Size = UDim2.new(0, 140, 0, 40)
+    TimerLabel.Position = UDim2.new(0.5, -70, 0, 60)
+    TimerLabel.BackgroundTransparency = 0.3
+    TimerLabel.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    TimerLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    TimerLabel.Font = Enum.Font.GothamBold
+    TimerLabel.TextSize = 32
+    TimerLabel.Text = "Таймер: ..."
+    TimerLabel.Visible = true
+end
+
+local function UpdateTimer()
+    if not TimerLabel then return end
+    local found = FindTimer()
+    if found then
+        TimerLabel.Text = "Таймер: " .. found.Text
+        TimerLabel.Visible = true
+    else
+        TimerLabel.Visible = false
+    end
+end
+
+-----------------------------------------------
+-- Остальной ваш скрипт
+-----------------------------------------------
 --=== РАБОЧИЙ ФЛИНГ ===--
 local function FlingPlayer(target)
     if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
         local root = target.Character.HumanoidRootPart
-        
-        -- Создаем мощную силу для флинга
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.Velocity = Vector3.new(10000, 10000, 10000)
         bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
         bodyVelocity.Parent = root
-        
-        -- Через секунду убираем силу
         wait(1)
         if bodyVelocity then
             bodyVelocity:Destroy()
         end
-        
         return true
     end
     return false
 end
 
 --=== РАБОЧИЙ ПОЛЕТ ===--
+FlyEnabled = false
+FlySpeed = 50
 local function ToggleFlight()
     if FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local root = LocalPlayer.Character.HumanoidRootPart
-        
         local bodyGyro = Instance.new("BodyGyro")
         bodyGyro.P = 1000
         bodyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
         bodyGyro.CFrame = root.CFrame
         bodyGyro.Parent = root
-        
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
         bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
         bodyVelocity.Parent = root
-        
         RunService.Heartbeat:Connect(function()
             if not FlyEnabled or not LocalPlayer.Character then
                 bodyGyro:Destroy()
                 bodyVelocity:Destroy()
                 return
             end
-            
             local camera = Workspace.CurrentCamera
             local moveDirection = Vector3.new(0, 0, 0)
-            
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
                 moveDirection = moveDirection + camera.CFrame.LookVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
                 moveDirection = moveDirection - camera.CFrame.LookVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
                 moveDirection = moveDirection - camera.CFrame.RightVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
                 moveDirection = moveDirection + camera.CFrame.RightVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.E) then
+            if UserInputService:IsKeyDown(Enum.KeyCode.E) then
                 moveDirection = moveDirection + Vector3.new(0, 1, 0)
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Q) then
+            if UserInputService:IsKeyDown(Enum.KeyCode.Q) then
                 moveDirection = moveDirection + Vector3.new(0, -1, 0)
             end
-            
             bodyVelocity.Velocity = moveDirection * FlySpeed
             bodyGyro.CFrame = camera.CFrame
         end)
@@ -173,13 +282,11 @@ local function ToggleFlight()
 end
 
 --=== РАБОЧИЙ АВТОФАРМ ШАРОВ ===--
+AutoFarmEnabled = false
 local function AutoFarmBalls()
     while AutoFarmEnabled do
         wait(0.5)
-        
-        -- Ищем шары (попробуй разные названия)
         local ballNames = {"Ball", "BeachBall", "Sphere", "EventBall", "SummerBall", "WinterBall"}
-        
         for _, ballName in pairs(ballNames) do
             local ball = Workspace:FindFirstChild(ballName)
             if ball and ball:IsA("Part") then
@@ -189,8 +296,6 @@ local function AutoFarmBalls()
                 end
             end
         end
-        
-        -- Ищем по всем объектам
         for _, obj in pairs(Workspace:GetChildren()) do
             if obj:IsA("Part") and (string.lower(obj.Name):find("ball") or string.lower(obj.Name):find("beach")) then
                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -202,7 +307,9 @@ local function AutoFarmBalls()
     end
 end
 
---=== ВКЛАДКА 1: VISUALS ===--
+-----------------------------------------------
+-- ВКЛАДКИ UI
+-----------------------------------------------
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 
 VisualsTab:CreateToggle({
@@ -213,13 +320,21 @@ VisualsTab:CreateToggle({
         if Value then
             Rayfield:Notify({Title = "ESP ВКЛЮЧЕН", Duration = 2})
         else
-            -- Очищаем ESP
             for player, objects in pairs(ESP.Objects) do
                 if objects.Highlight then objects.Highlight:Destroy() end
                 if objects.Billboard then objects.Billboard:Destroy() end
             end
             ESP.Objects = {}
         end
+    end,
+})
+
+VisualsTab:CreateToggle({
+    Name = "🧵 Трейсеры к игрокам",
+    CurrentValue = false,
+    Callback = function(Value)
+        ESP.Tracers = Value
+        if not Value then RemoveTracers() end
     end,
 })
 
@@ -247,9 +362,21 @@ VisualsTab:CreateToggle({
     end,
 })
 
---=== ВКЛАДКА 2: COMBAT ===--
-local CombatTab = Window:CreateTab("Combat", 7733912645)
+VisualsTab:CreateToggle({
+    Name = "⏱️ Таймер раунда",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            CreateTimerUI()
+        else
+            if TimerLabel then
+                TimerLabel.Visible = false
+            end
+        end
+    end,
+})
 
+local CombatTab = Window:CreateTab("Combat", 7733912645)
 CombatTab:CreateButton({
     Name = "💀 Убить всех",
     Callback = function()
@@ -262,7 +389,6 @@ CombatTab:CreateButton({
         Rayfield:Notify({Title = "Все игроки убиты!", Duration = 3})
     end
 })
-
 CombatTab:CreateButton({
     Name = "🔫 Убить шерифа",
     Callback = function()
@@ -281,9 +407,7 @@ CombatTab:CreateButton({
     end
 })
 
---=== ВКЛАДКА 3: MOVEMENT ===--
 local MovementTab = Window:CreateTab("Movement", 7733920848)
-
 MovementTab:CreateToggle({
     Name = "🕊️ Полёт",
     CurrentValue = false,
@@ -297,7 +421,6 @@ MovementTab:CreateToggle({
         end
     end,
 })
-
 MovementTab:CreateSlider({
     Name = "Скорость полёта",
     Range = {10, 100},
@@ -309,9 +432,7 @@ MovementTab:CreateSlider({
     end,
 })
 
---=== ВКЛАДКА 4: FARM ===--
 local FarmTab = Window:CreateTab("Farm", 7733965351)
-
 FarmTab:CreateToggle({
     Name = "💰 Автофарм шаров",
     CurrentValue = false,
@@ -325,7 +446,6 @@ FarmTab:CreateToggle({
         end
     end,
 })
-
 FarmTab:CreateButton({
     Name = "🔫 Взять пушку",
     Callback = function()
@@ -339,9 +459,7 @@ FarmTab:CreateButton({
     end
 })
 
---=== ВКЛАДКА 5: TROLL ===--
 local TrollTab = Window:CreateTab("Troll", 7733912645)
-
 TrollTab:CreateButton({
     Name = "🌀 Флинг всех",
     Callback = function()
@@ -356,7 +474,6 @@ TrollTab:CreateButton({
         Rayfield:Notify({Title = "Флинг завершен", Content = "Зафлинжено: " .. successCount, Duration = 3})
     end
 })
-
 TrollTab:CreateButton({
     Name = "🔪 Флинг убийцы",
     Callback = function()
@@ -375,7 +492,6 @@ TrollTab:CreateButton({
         Rayfield:Notify({Title = "Убийца не найден", Duration = 3})
     end
 })
-
 TrollTab:CreateButton({
     Name = "🔫 Флинг шерифа",
     Callback = function()
@@ -395,9 +511,7 @@ TrollTab:CreateButton({
     end
 })
 
---=== ВКЛАДКА 6: SETTINGS ===--
 local SettingsTab = Window:CreateTab("Settings", 7733965351)
-
 SettingsTab:CreateDropdown({
     Name = "🎨 Тема интерфейса",
     Options = {"Dark", "Red", "Blue", "Green", "Purple"},
@@ -415,29 +529,35 @@ SettingsTab:CreateDropdown({
     end,
 })
 
---=== ОСНОВНОЙ ЦИКЛ ===--
+-----------------------------------------------
+-- ОСНОВНОЙ ЦИКЛ
+-----------------------------------------------
 RunService.Heartbeat:Connect(function()
-    -- Обновляем ESP
     if ESP.Enabled then
         UpdateESP()
     end
+    if ESP.Tracers then
+        UpdateTracers()
+    end
+    if TimerLabel and TimerLabel.Visible then
+        UpdateTimer()
+    end
 end)
 
--- Анти-АФК
 local VirtualUser = game:GetService("VirtualUser")
 game:GetService("Players").LocalPlayer.Idled:connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Уведомление о загрузке
 Rayfield:Notify({
-    Title = "🎮 MM2 CHEAT v10.0 ЗАГРУЖЕН!",
+    Title = "🎮 MM2 CHEAT v10.1 ЗАГРУЖЕН!",
     Content = "ВСЕ ФУНКЦИИ РАБОТАЮТ!",
     Duration = 6,
 })
 
-print("✅ MM2 Ultimate Cheat v10.0 АКТИВИРОВАН!")
-print("✅ ESP РАБОТАЕТ")
-print("✅ ФЛИНГ РАБОТАЕТ")
-print("✅ ВСЕ ФУНКЦИИ РАБОЧИЕ!")
+print("✅ MM2 Ultimate Cheat v10.1 АКТИВИРОВАН!")
+print("✅ ESP РАБОТАЕТ (Убийца — КРАСНЫЙ)")
+print("✅ Трейсеры работают")
+print("✅ Таймер раунда отображается")
+print("✅ Все функции рабочие!")

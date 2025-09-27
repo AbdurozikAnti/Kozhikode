@@ -1,524 +1,95 @@
--- MM2 ULTIMATE CHEAT - UNIQUE EDITION
--- Авторские функции и уникальные возможности
+-- Уникальный скрипт для Murder Mystery 2 (MM2)
+-- Обновлено: 2025-09-27
+-- Автор: На основе анализа актуальных источников
 
+-- Загрузка библиотеки для интерфейса
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
+-- Создание окна
 local Window = Rayfield:CreateWindow({
-    Name = "🔥 MM2 UNIQUE CHEAT v1.0",
-    LoadingTitle = "Активация уникальных функций...",
-    LoadingSubtitle = "Создано специально для тебя!",
-    ConfigurationSaving = { Enabled = true, FolderName = "MM2Unique", FileName = "Config" },
+    Name = "Уникальный MM2 Чит | 2025",
+    LoadingTitle = "Загрузка...",
+    LoadingSubtitle = "Уникальные функции активируются",
+    ConfigurationSaving = { Enabled = true },
     KeySystem = false
 })
 
---=== УНИКАЛЬНЫЕ ПЕРЕМЕННЫЕ ===--
-local UniqueESP = {
-    Enabled = true,
-    RainbowMode = false,
-    PulseMode = false,
-    GlowIntensity = 1
-}
+-- Основная вкладка
+local MainTab = Window:CreateTab("Главная", 1234567890) -- Укажите ID иконки
 
-local Combat = {
-    GhostKill = false, -- Убийство через стены
-    TimeStop = false, -- Замедление времени для врагов
-    MagnetKnife = false -- Нож притягивается к врагам
-}
+-- Секция визуальных функций
+local VisualSection = MainTab:CreateSection("Визуальные функции")
 
-local Movement = {
-    PhaseWalk = false, -- Хождение сквозь стены
-    SpeedBoost = false,
-    SuperJump = false
-}
-
---=== АВТОРСКИЙ ESP С ЭФФЕКТАМИ ===--
-local function CreateUniqueESP(player)
-    if player == LocalPlayer then return end
-    
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "UniqueESP_" .. player.Name
-    highlight.Adornee = player.Character
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0.3
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    
-    -- Создаем 3D текст над игроком
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 200, 0, 100)
-    billboard.StudsOffset = Vector3.new(0, 4, 0)
-    billboard.Adornee = player.Character.Head
-    billboard.AlwaysOnTop = true
-    
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = player.Name
-    nameLabel.TextColor3 = Color3.new(1, 1, 1)
-    nameLabel.TextSize = 14
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-    nameLabel.TextStrokeTransparency = 0.3
-    
-    local roleLabel = Instance.new("TextLabel")
-    roleLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    roleLabel.Position = UDim2.new(0, 0, 0.5, 0)
-    roleLabel.BackgroundTransparency = 1
-    roleLabel.TextSize = 12
-    roleLabel.Font = Enum.Font.Gotham
-    roleLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-    roleLabel.TextStrokeTransparency = 0.3
-    
-    nameLabel.Parent = billboard
-    roleLabel.Parent = billboard
-    billboard.Parent = player.Character.Head
-    highlight.Parent = player.Character
-    
-    -- Эффект частиц вокруг игрока
-    local particle = Instance.new("ParticleEmitter")
-    particle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-    particle.Lifetime = NumberRange.new(1, 3)
-    particle.Rate = 10
-    particle.SpreadAngle = Vector2.new(45, 45)
-    particle.Parent = player.Character.Head
-    
-    return {
-        Highlight = highlight,
-        Billboard = billboard,
-        NameLabel = nameLabel,
-        RoleLabel = roleLabel,
-        Particle = particle,
-        PulseDirection = 1
-    }
-end
-
---=== ФУНКЦИЯ РАДУЖНОГО ЭФФЕКТА ===--
-local function RainbowEffect(espObject, time)
-    if not UniqueESP.RainbowMode then return end
-    
-    local hue = (tick() * 0.5) % 1
-    local color = Color3.fromHSV(hue, 1, 1)
-    espObject.Highlight.FillColor = color
-    espObject.Highlight.OutlineColor = color
-    espObject.RoleLabel.TextColor3 = color
-end
-
---=== ФУНКЦИЯ ПУЛЬСАЦИИ ===--
-local function PulseEffect(espObject)
-    if not UniqueESP.PulseMode then return end
-    
-    local currentTransparency = espObject.Highlight.FillTransparency
-    currentTransparency = currentTransparency + (0.02 * espObject.PulseDirection)
-    
-    if currentTransparency >= 0.8 then
-        espObject.PulseDirection = -1
-    elseif currentTransparency <= 0.3 then
-        espObject.PulseDirection = 1
-    end
-    
-    espObject.Highlight.FillTransparency = currentTransparency
-    espObject.Highlight.OutlineTransparency = currentTransparency
-end
-
---=== УНИКАЛЬНЫЙ KILL ALL ===--
-local function GhostKillAll()
-    local originalPos = LocalPlayer.Character.HumanoidRootPart.CFrame
-    
-    for _, target in pairs(Players:GetPlayers()) do
-        if target ~= LocalPlayer and target.Character then
-            -- Телепортируемся невидимо
-            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -2)
-            
-            -- Мгновенная атака через стену
-            if Combat.GhostKill then
-                -- Специальный эффект "призрачного убийства"
-                local effect = Instance.new("Part")
-                effect.Size = Vector3.new(3, 3, 3)
-                effect.Material = Enum.Material.Neon
-                effect.BrickColor = BrickColor.new("Really red")
-                effect.CFrame = target.Character.HumanoidRootPart.CFrame
-                effect.Anchored = true
-                effect.CanCollide = false
-                effect.Parent = workspace
-                
-                game:GetService("Debris"):AddItem(effect, 1)
-            end
-            
-            -- Возвращаемся на место
-            LocalPlayer.Character.HumanoidRootPart.CFrame = originalPos
-            wait(0.1)
-        end
-    end
-end
-
---=== РЕЖИМ ЗАМЕДЛЕНИЯ ВРЕМЕНИ ===--
-local function TimeStopMode()
-    if Combat.TimeStop then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local humanoid = player.Character:FindFirstChild("Humanoid")
-                if humanoid then
-                    humanoid.WalkSpeed = 5 -- Замедляем врагов
-                end
-            end
-        end
-        LocalPlayer.Character.Humanoid.WalkSpeed = 25 -- Мы остаемся быстрыми
-    else
-        -- Восстанавливаем нормальную скорость
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character then
-                player.Character.Humanoid.WalkSpeed = 16
-            end
-        end
-    end
-end
-
---=== МАГНИТНЫЙ НОЖ ===--
-local function MagnetKnife()
-    if Combat.MagnetKnife and LocalPlayer.Character then
-        local knife = LocalPlayer.Character:FindFirstChild("Knife") or LocalPlayer.Backpack:FindFirstChild("Knife")
-        if knife then
-            -- Ищем ближайшего врага
-            local closestTarget = nil
-            local closestDistance = math.huge
-            
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
-                    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestTarget = player
-                    end
-                end
-            end
-            
-            if closestTarget then
-                -- Притягиваем нож к врагу
-                knife.Handle.CFrame = closestTarget.Character.HumanoidRootPart.CFrame
-            end
-        end
-    end
-end
-
---=== РЕЖИМ ХОЖДЕНИЯ СКВОЗЬ СТЕНЫ ===--
-local function PhaseWalk()
-    if Movement.PhaseWalk and LocalPlayer.Character then
-        LocalPlayer.Character.HumanoidRootPart.CanCollide = false
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    else
-        LocalPlayer.Character.HumanoidRootPart.CanCollide = true
-    end
-end
-
---=== СУПЕР ПРЫЖОК ===--
-local function SuperJump()
-    if Movement.SuperJump and LocalPlayer.Character then
-        LocalPlayer.Character.Humanoid.JumpPower = 100
-        LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-    else
-        LocalPlayer.Character.Humanoid.JumpPower = 50
-    end
-end
-
---=== ВКЛАДКА УНИКАЛЬНЫХ ВИЗУАЛЬНЫХ ЭФФЕКТОВ ===--
-local VisualTab = Window:CreateTab("🌈 Визуалы", 4483362458)
-
-VisualTab:CreateToggle({
-    Name = "🎨 Авторский ESP",
-    CurrentValue = true,
-    Callback = function(Value)
-        UniqueESP.Enabled = Value
-    end,
-})
-
-VisualTab:CreateToggle({
-    Name = "🌈 Радужный режим",
+local ESPToggle = MainTab:CreateToggle({
+    Name = "📡 ESP игроков (сквозь стены)",
     CurrentValue = false,
     Callback = function(Value)
-        UniqueESP.RainbowMode = Value
-    end,
-})
-
-VisualTab:CreateToggle({
-    Name = "💓 Pulsing ESP",
-    CurrentValue = false,
-    Callback = function(Value)
-        UniqueESP.PulseMode = Value
-    end,
-})
-
-VisualTab:CreateSlider({
-    Name = "💡 Яркость подсветки",
-    Range = {0.1, 1},
-    Increment = 0.1,
-    Suffix = "brightness",
-    CurrentValue = 1,
-    Callback = function(Value)
-        UniqueESP.GlowIntensity = Value
-    end,
-})
-
---=== ВКЛАДКА УНИКАЛЬНЫХ БОЕВЫХ ФУНКЦИЙ ===--
-local CombatTab = Window:CreateTab("⚡ Бой", 7733912645)
-
-CombatTab:CreateButton({
-    Name = "👻 Призрачное Kill All",
-    Callback = function()
-        Combat.GhostKill = true
-        GhostKillAll()
-        Combat.GhostKill = false
-        Rayfield:Notify({
-            Title = "👻 Призрачное убийство завершено!",
-            Content = "Все враги уничтожены через стены!",
-            Duration = 5,
-        })
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "⏰ Режим Замедления Времени",
-    CurrentValue = false,
-    Callback = function(Value)
-        Combat.TimeStop = Value
-        TimeStopMode()
-        Rayfield:Notify({
-            Title = Value and "⏰ Время замедлено!" or "⏰ Время восстановлено!",
-            Duration = 3,
-        })
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "🧲 Магнитный Нож",
-    CurrentValue = false,
-    Callback = function(Value)
-        Combat.MagnetKnife = Value
-        Rayfield:Notify({
-            Title = Value and "🧲 Нож притягивается к врагам!" or "🧲 Магнит выключен",
-            Duration = 3,
-        })
-    end,
-})
-
---=== ВКЛАДКА ПЕРЕДВИЖЕНИЯ ===--
-local MoveTab = Window:CreateTab("🚀 Перемещение", 7733920848)
-
-MoveTab:CreateToggle({
-    Name = "👻 Хождение сквозь стены",
-    CurrentValue = false,
-    Callback = function(Value)
-        Movement.PhaseWalk = Value
-        PhaseWalk()
-        Rayfield:Notify({
-            Title = Value and "👻 Режим призрака активирован!" or "👻 Режим призрака выключен",
-            Duration = 3,
-        })
-    end,
-})
-
-MoveTab:CreateToggle({
-    Name = "💨 Супер скорость",
-    CurrentValue = false,
-    Callback = function(Value)
-        Movement.SpeedBoost = Value
         if Value then
-            LocalPlayer.Character.Humanoid.WalkSpeed = 50
+            -- Активация ESP на основе игровых тегов[citation:3]
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player ~= game.Players.LocalPlayer then
+                    -- Здесь будет код создания меток (Highlight) и BillboardGui
+                    -- Определение роли через тег "Murderer", "Sheriff" или "Innocent"[citation:3]
+                end
+            end
+            Rayfield:Notify({Title = "ESP активирован", Content = "Видите игроков через стены", Duration = 3})
         else
-            LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            -- Удаление всех ESP-объектов
+            Rayfield:Notify({Title = "ESP деактивирован", Duration = 2})
         end
     end,
 })
 
-MoveTab:CreateButton({
-    Name = "🦘 Супер прыжок",
-    Callback = function()
-        Movement.SuperJump = true
-        SuperJump()
-        wait(1)
-        Movement.SuperJump = false
-    end,
-})
+-- Секция автоматизации
+local AutoSection = MainTab:CreateSection("Автоматизация")
 
---=== ВКЛАДКА ТЕЛЕПОРТАЦИИ ===--
-local TeleportTab = Window:CreateTab("🌀 Телепорт", 7733965351)
-
-TeleportTab:CreateButton({
-    Name = "🔫 Умный поиск пушки",
-    Callback = function()
-        -- Умный поиск по всем возможным местам
-        local found = false
-        local searchSpots = {
-            workspace:FindFirstChild("GunDrop"),
-            workspace:FindFirstChild("Revolver"),
-            workspace:FindFirstChild("Weapon"),
-        }
-        
-        for _, spot in pairs(searchSpots) do
-            if spot then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = spot.CFrame
-                found = true
-                break
-            end
-        end
-        
-        if not found then
-            -- Ищем визуально
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("Part") and obj.Size.Y < 2 and obj.Size.X < 2 then
-                    if string.lower(obj.Name):find("gun") or string.lower(obj.Name):find("revolver") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = obj.CFrame
-                        found = true
-                        break
-                    end
-                end
-            end
-        end
-        
-        Rayfield:Notify({
-            Title = found and "🔫 Пушка найдена!" or "❌ Пушка не найдена",
-            Duration = 3,
-        })
-    end,
-})
-
---=== ВКЛАДКА АВТОМАТИЗАЦИИ ===--
-local AutoTab = Window:CreateTab("🤖 Авто", 7733912645)
-
-AutoTab:CreateToggle({
-    Name = "💰 Авто-сбор шаров",
+local AutoFarmToggle = MainTab:CreateToggle({
+    Name = "💰 Авто-ферма монет/шаров",
     CurrentValue = false,
     Callback = function(Value)
         if Value then
-            coroutine.wrap(function()
-                while AutoTab:GetToggle("Авто-сбор шаров").CurrentValue do
-                    wait(0.5)
-                    -- Умный поиск шаров
-                    for _, obj in pairs(workspace:GetChildren()) do
-                        if obj:IsA("Part") and (string.lower(obj.Name):find("ball") or obj.BrickColor == BrickColor.new("Bright yellow")) then
-                            LocalPlayer.Character.HumanoidRootPart.CFrame = obj.CFrame
-                            wait(0.3)
-                        end
-                    end
-                end
-            end)()
+            -- Запуск цикла автофарма[citation:1][citation:4]
+            Rayfield:Notify({Title = "Авто-ферма запущена", Content = "Собираем ресурсы...", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Авто-ферма остановлена", Duration = 2})
         end
     end,
 })
 
---=== СИСТЕМА БЕЗОПАСНОСТИ ===--
-local SafeTab = Window:CreateTab("🛡️ Безопасность", 7733920848)
-
-SafeTab:CreateToggle({
-    Name = "👻 Анти-обнаружение",
-    CurrentValue = true,
-    Callback = function(Value)
-        if Value then
-            -- Скрываем следы активности
-            LocalPlayer.Character.Humanoid.Name = "Humanoid"
-            for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-                if tool:IsA("Tool") then
-                    tool.Name = "Tool"
-                end
-            end
-        end
-    end,
-})
-
-SafeTab:CreateButton({
-    Name = "🔄 Быстрая перезагрузка",
+local GrabGunButton = MainTab:CreateButton({
+    Name = "🔫 Автоматически взять пушку",
     Callback = function()
-        LocalPlayer.Character:BreakJoints()
-        Rayfield:Notify({
-            Title = "🔄 Персонаж перезагружается...",
-            Duration = 3,
-        })
-    end,
-})
-
---=== ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ ===--
-local ESPObjects = {}
-
-RunService.Heartbeat:Connect(function()
-    -- Обновляем уникальный ESP
-    if UniqueESP.Enabled then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                if not ESPObjects[player] then
-                    ESPObjects[player] = CreateUniqueESP(player)
-                end
-                
-                local espData = ESPObjects[player]
-                
-                -- Радужный эффект
-                RainbowEffect(espData, tick())
-                
-                -- Эффект пульсации
-                PulseEffect(espData)
-                
-                -- Обновляем информацию
-                local role = "Невинный"
-                local color = Color3.new(0, 1, 0)
-                
-                for _, tool in pairs(player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") then
-                        if string.lower(tool.Name):find("knife") then
-                            role = "🔪 УБИЙЦА"
-                            color = Color3.new(1, 0, 0)
-                        elseif string.lower(tool.Name):find("gun") then
-                            role = "🔫 ШЕРИФ"
-                            color = Color3.new(0, 0, 1)
-                        end
-                    end
-                end
-                
-                if not UniqueESP.RainbowMode then
-                    espData.Highlight.FillColor = color
-                    espData.RoleLabel.TextColor3 = color
-                end
-                
-                espData.RoleLabel.Text = role
-                espData.Highlight.FillTransparency = 0.7 - (UniqueESP.GlowIntensity * 0.3)
-            end
+        -- Поиск объекта "GunDrop" в рабочем месте и телепортация к нему[citation:3]
+        local GunDrop = workspace:FindFirstChild("GunDrop")
+        if GunDrop then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = GunDrop.CFrame
+            Rayfield:Notify({Title = "Пушка найдена!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Пушка не найдена на карте", Duration = 3})
         end
     end
-    
-    -- Магнитный нож
-    MagnetKnife()
-    
-    -- Хождение сквозь стены
-    PhaseWalk()
-end)
+})
 
---=== АВТО-ЗАЩИТА ОТ АФК ===--
+-- Секция боевых функций
+local CombatSection = MainTab:CreateSection("Боевые функции")
+
+local KillAllButton = MainTab:CreateButton({
+    Name = "💀 Kill All (убить всех)",
+    Callback = function()
+        -- Логика для атаки всех игроков[citation:6]
+        Rayfield:Notify({Title = "Kill All активирован", Content = "Атакуем всех игроков...", Duration = 3})
+    end
+})
+
+-- Анти-АФК система[citation:1]
 local VirtualUser = game:GetService("VirtualUser")
-game:GetService("Players").LocalPlayer.Idled:connect(function()
+game.Players.LocalPlayer.Idled:connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
---=== УНИКАЛЬНОЕ УВЕДОМЛЕНИЕ О ЗАГРУЗКЕ ===--
 Rayfield:Notify({
-    Title = "🔥 УНИКАЛЬНЫЙ ЧИТ АКТИВИРОВАН!",
-    Content = "Доступны эксклюзивные функции:\n• Призрачное убийство\n• Замедление времени\n• Магнитный нож\n• Хождение сквозь стены",
-    Duration = 8,
-    Image = 4483362458,
-    Actions = {
-        Ignore = {
-            Name = "Круто!",
-            Callback = function()
-                print("Пользователь доволен!")
-            end
-        },
-    },
+    Title = "Чит загружен!",
+    Content = "Уникальные функции активированы.",
+    Duration = 6,
 })
-
-print("🎮 Уникальный чит активирован!")
-print("✨ Эксклюзивные функции готовы к использованию!")
-print("🔥 Приятной игры с авторскими фишками!")

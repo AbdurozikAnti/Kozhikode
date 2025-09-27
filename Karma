@@ -1,166 +1,100 @@
--- Murder Mystery 2 Ultimate Cheat GUI v10.1 (Обновлено: фикс ESP, трейсер, таймер)
--- ПОЛНОСТЬЮ РАБОЧИЙ СКРИПТ v10.1
+-- MM2 Ultimate Cheat v11.0 by @PauseGpam (Rayfield UI, полный мобильный флай, вкладки, роли)
+-- Для Rayfield UI v4+, поддержка телефона (мобильного флая через кнопки), все вкладки
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
-local Window = Rayfield:CreateWindow({
-    Name = "🎭 MM2 ULTIMATE CHEAT v10.1",
-    LoadingTitle = "Загрузка...",
-    LoadingSubtitle = "ВСЕ ФУНКЦИИ РАБОТАЮТ!",
-    ConfigurationSaving = { Enabled = true, FolderName = "MM2Cheat", FileName = "Config" },
-    Discord = { Enabled = false },
-    KeySystem = false
-})
+----------------------------
+-- Переменные для функций --
+----------------------------
+local FlyEnabled, FlySpeed = false, 50
+local FlyDirection = Vector3.new(0,0,0)
+local FarmEnabled, FarmSpeed = false, 1
+local ESPEnabled, TracerEnabled = false, false
+local ChamsGunEnabled = false
+local GrabGunEnabled = false
+local AutoGrabGun = false
+local WindowTransparency = 0
+local CurrentTheme = "Dark"
+local TracerGui = Instance.new("ScreenGui", game.CoreGui)
+TracerGui.Name = "TracerLinesGui"
+local ESP = {Objects = {}}
 
------------------------------------------------
--- ESP и Трейсеры
------------------------------------------------
-local ESP = {
-    Enabled = false,
-    Tracers = false,
-    Objects = {}
+-------------------------
+-- CHAMS/ESP/TRACE VIS --
+-------------------------
+local RoleColors = {
+    Murderer = Color3.fromRGB(255,0,0),
+    Sheriff  = Color3.fromRGB(0,100,255),
+    Hero     = Color3.fromRGB(255,255,0),
+    Innocent = Color3.fromRGB(0,255,0)
 }
-local TracerFolder = Instance.new("Folder", game.CoreGui)
-TracerFolder.Name = "TracerLines"
-local function RemoveTracers()
-    for _, v in ipairs(TracerFolder:GetChildren()) do
-        v:Destroy()
-    end
-end
+local DroppedGunColor = Color3.fromRGB(255,255,0)
 
-local function CreateTracer(player)
-    local line = Drawing and Drawing.new and Drawing.new("Line") or nil
-    if not line then return end
-    line.Visible = false
-    line.Color = Color3.new(1,1,1)
-    line.Thickness = 2
-    line.Transparency = 1
-    return line
-end
-
-local function UpdateTracers()
-    if not ESP.Tracers then RemoveTracers() return end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = player.Character.HumanoidRootPart
-            local screenPos, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
-            if onScreen then
-                local tracer = TracerFolder:FindFirstChild(player.Name .. "_Tracer")
-                if not tracer then
-                    tracer = Instance.new("Frame", TracerFolder)
-                    tracer.Name = player.Name .. "_Tracer"
-                    tracer.BackgroundTransparency = 1
-                    tracer.BorderSizePixel = 0
-                    tracer.AnchorPoint = Vector2.new(0.5,0.5)
-                    tracer.Size = UDim2.new(0,2,0,2)
+local function GetRole(player)
+    local role, color = "Innocent", RoleColors.Innocent
+    local function checkTools(container)
+        for _, tool in ipairs(container:GetChildren()) do
+            if tool:IsA("Tool") then
+                local n = tool.Name:lower()
+                if n:find("knife") then
+                    role, color = "Murderer", RoleColors.Murderer
+                elseif n:find("gun") then
+                    role, color = "Sheriff", RoleColors.Sheriff
+                elseif n:find("hero") then
+                    role, color = "Hero", RoleColors.Hero
                 end
-                tracer.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
-                tracer.Visible = true
-                -- Simple line: from bottom-center to player
-                if not tracer:FindFirstChild("Line") then
-                    local line = Instance.new("Frame", tracer)
-                    line.Name = "Line"
-                    line.BackgroundTransparency = 0
-                    line.BackgroundColor3 = Color3.new(1,1,1)
-                    line.BorderSizePixel = 0
-                    line.Size = UDim2.new(0,2,0,2)
-                end
-                local line = tracer.Line
-                local originY = Workspace.CurrentCamera.ViewportSize.Y -- bottom of screen
-                line.Position = UDim2.new(0,0,0,originY-screenPos.Y)
-                line.Size = UDim2.new(0,2,0,screenPos.Y-originY)
             end
         end
     end
+    if player.Backpack then checkTools(player.Backpack) end
+    if player.Character then checkTools(player.Character) end
+    return role, color
 end
 
 local function CreateESP(player)
     if ESP.Objects[player] then return end
+    local h = Instance.new("Highlight")
+    h.Name = player.Name .. "_ESP"
+    h.Adornee = player.Character
+    h.FillColor = RoleColors.Innocent
+    h.OutlineColor = Color3.new(1,1,1)
+    h.FillTransparency = 0.5
+    h.OutlineTransparency = 0
+    h.Parent = player.Character
 
-    local highlight = Instance.new("Highlight")
-    highlight.Name = player.Name .. "_ESP"
-    highlight.Adornee = player.Character
-    highlight.FillColor = Color3.new(1, 0, 0)
-    highlight.OutlineColor = Color3.new(1, 1, 1)
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
-    highlight.Parent = player.Character
+    local b = Instance.new("BillboardGui")
+    b.Name = player.Name .. "_Info"
+    b.Adornee = player.Character:WaitForChild("Head")
+    b.Size = UDim2.new(0, 160, 0, 30)
+    b.StudsOffset = Vector3.new(0, 2.5, 0)
+    b.AlwaysOnTop = true
 
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = player.Name .. "_Info"
-    billboard.Adornee = player.Character:WaitForChild("Head")
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
+    local t = Instance.new("TextLabel", b)
+    t.Size = UDim2.new(1,0,1,0)
+    t.BackgroundTransparency = 1
+    t.Text = player.Name
+    t.TextColor3 = Color3.new(1,1,1)
+    t.TextScaled = true
+    t.Font = Enum.Font.GothamBold
 
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = player.Name
-    textLabel.TextColor3 = Color3.new(1, 1, 1)
-    textLabel.TextSize = 14
-    textLabel.Font = Enum.Font.GothamBold
-    textLabel.Parent = billboard
-
-    billboard.Parent = player.Character.Head
-
-    ESP.Objects[player] = {
-        Highlight = highlight,
-        Billboard = billboard
-    }
-end
-
-local function GetRole(player)
-    local role = "Невинный"
-    local color = Color3.fromRGB(0,255,0) -- Зеленый
-    if player.Backpack then
-        for _, tool in ipairs(player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                if string.lower(tool.Name):find("knife") then
-                    color = Color3.fromRGB(255,0,0) -- Красный
-                    role = "УБИЙЦА"
-                    break
-                elseif string.lower(tool.Name):find("gun") then
-                    color = Color3.fromRGB(0,0,255) -- Синий
-                    role = "ШЕРИФ"
-                    break
-                end
-            end
-        end
-    end
-    if player.Character then
-        for _, tool in ipairs(player.Character:GetChildren()) do
-            if tool:IsA("Tool") then
-                if string.lower(tool.Name):find("knife") then
-                    color = Color3.fromRGB(255,0,0)
-                    role = "УБИЙЦА"
-                    break
-                elseif string.lower(tool.Name):find("gun") then
-                    color = Color3.fromRGB(0,0,255)
-                    role = "ШЕРИФ"
-                    break
-                end
-            end
-        end
-    end
-    return role, color
+    b.Parent = player.Character.Head
+    ESP.Objects[player] = {Highlight = h, Billboard = b}
 end
 
 local function UpdateESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            if ESP.Enabled then
-                if not ESP.Objects[player] then
-                    CreateESP(player)
-                end
-                local role, color = GetRole(player)
+    for _,player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            if ESPEnabled then
+                if not ESP.Objects[player] then CreateESP(player) end
+                local role,color = GetRole(player)
                 ESP.Objects[player].Highlight.FillColor = color
-                ESP.Objects[player].Billboard.TextLabel.Text = player.Name .. " - " .. role
+                ESP.Objects[player].Billboard.TextLabel.Text = player.Name.." - "..role
                 ESP.Objects[player].Billboard.TextLabel.TextColor3 = color
             else
                 if ESP.Objects[player] then
@@ -173,391 +107,351 @@ local function UpdateESP()
     end
 end
 
------------------------------------------------
--- Таймер раунда
------------------------------------------------
-local RoundTimer = 0
-local TimerLabel = nil
-local function FindTimer()
-    for _, v in pairs(Workspace:GetDescendants()) do
-        if v:IsA("TextLabel") and v.Text:match(":%d%d$") then
-            return v
+local function RemoveTracers() for _,v in ipairs(TracerGui:GetChildren()) do v:Destroy() end end
+
+local function UpdateTracers()
+    if not TracerEnabled then RemoveTracers() return end
+    local camera = Workspace.CurrentCamera
+    local view = camera.ViewportSize
+    local origin = Vector2.new(view.X/2, view.Y)
+    for _,player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local screenPos,onScreen = camera:WorldToViewportPoint(hrp.Position)
+            local tracer = TracerGui:FindFirstChild(player.Name.."_Tracer")
+            if not tracer then
+                tracer = Instance.new("Frame")
+                tracer.Name = player.Name.."_Tracer"
+                tracer.BackgroundTransparency = 1
+                tracer.Size = UDim2.new(0,1,0,1)
+                tracer.Parent = TracerGui
+            end
+            if onScreen then
+                tracer.Visible = true
+                for _,c in pairs(tracer:GetChildren()) do c:Destroy() end
+                local line = Instance.new("Frame", tracer)
+                line.Name = "Line"
+                _,line.BackgroundColor3 = GetRole(player)
+                line.BorderSizePixel = 0
+                line.AnchorPoint = Vector2.new(0,0)
+                local dx = screenPos.X - origin.X
+                local dy = screenPos.Y - origin.Y
+                local len = math.sqrt(dx*dx + dy*dy)
+                line.Size = UDim2.new(0,2,0,len)
+                line.Position = UDim2.new(0,0,0,0)
+                line.Rotation = math.deg(math.atan2(dx,dy))*-1
+                line.BackgroundTransparency = 0
+                tracer.Position = UDim2.new(0,origin.X,0,origin.Y)
+            else
+                tracer.Visible = false
+            end
+        else
+            local tracer = TracerGui:FindFirstChild(player.Name.."_Tracer")
+            if tracer then tracer.Visible = false end
         end
     end
-    return nil
 end
 
-local function CreateTimerUI()
-    if TimerLabel then return end
-    local sgui = Instance.new("ScreenGui", game.CoreGui)
-    sgui.Name = "MM2_Timer"
-    TimerLabel = Instance.new("TextLabel", sgui)
-    TimerLabel.Size = UDim2.new(0, 140, 0, 40)
-    TimerLabel.Position = UDim2.new(0.5, -70, 0, 60)
-    TimerLabel.BackgroundTransparency = 0.3
-    TimerLabel.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    TimerLabel.TextColor3 = Color3.fromRGB(255,255,255)
-    TimerLabel.Font = Enum.Font.GothamBold
-    TimerLabel.TextSize = 32
-    TimerLabel.Text = "Таймер: ..."
-    TimerLabel.Visible = true
-end
-
-local function UpdateTimer()
-    if not TimerLabel then return end
-    local found = FindTimer()
-    if found then
-        TimerLabel.Text = "Таймер: " .. found.Text
-        TimerLabel.Visible = true
-    else
-        TimerLabel.Visible = false
-    end
-end
-
------------------------------------------------
--- Остальной ваш скрипт
------------------------------------------------
---=== РАБОЧИЙ ФЛИНГ ===--
-local function FlingPlayer(target)
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        local root = target.Character.HumanoidRootPart
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.Velocity = Vector3.new(10000, 10000, 10000)
-        bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
-        bodyVelocity.Parent = root
-        wait(1)
-        if bodyVelocity then
-            bodyVelocity:Destroy()
+local function ChamsDroppedGun()
+    for _,v in pairs(Workspace:GetChildren()) do
+        if v.Name == "GunDrop" then
+            local old = v:FindFirstChildOfClass("Highlight")
+            if not old then
+                local h = Instance.new("Highlight")
+                h.FillColor = DroppedGunColor
+                h.OutlineColor = Color3.new(1,1,0)
+                h.Parent = v
+            end
         end
-        return true
     end
-    return false
 end
 
---=== РАБОЧИЙ ПОЛЕТ ===--
-FlyEnabled = false
-FlySpeed = 50
-local function ToggleFlight()
-    if FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local root = LocalPlayer.Character.HumanoidRootPart
-        local bodyGyro = Instance.new("BodyGyro")
-        bodyGyro.P = 1000
-        bodyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
-        bodyGyro.CFrame = root.CFrame
-        bodyGyro.Parent = root
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
-        bodyVelocity.Parent = root
-        RunService.Heartbeat:Connect(function()
-            if not FlyEnabled or not LocalPlayer.Character then
-                bodyGyro:Destroy()
-                bodyVelocity:Destroy()
-                return
-            end
-            local camera = Workspace.CurrentCamera
-            local moveDirection = Vector3.new(0, 0, 0)
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                moveDirection = moveDirection + camera.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                moveDirection = moveDirection - camera.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                moveDirection = moveDirection - camera.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                moveDirection = moveDirection + camera.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.E) then
-                moveDirection = moveDirection + Vector3.new(0, 1, 0)
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Q) then
-                moveDirection = moveDirection + Vector3.new(0, -1, 0)
-            end
-            bodyVelocity.Velocity = moveDirection * FlySpeed
-            bodyGyro.CFrame = camera.CFrame
+--------------------------
+-- MOBILE ФЛАЙ
+--------------------------
+local FlyMobileGui = nil
+local function CreateFlyMobileUI()
+    if FlyMobileGui then return end
+    FlyMobileGui = Instance.new("ScreenGui", game.CoreGui)
+    FlyMobileGui.Name = "FlyMobile"
+    local btns = {"↑","←","→","↓","⏏️"}
+    local directions = {
+        [1] = Vector3.new(0,0,1), -- up/W
+        [2] = Vector3.new(-1,0,0),-- left/A
+        [3] = Vector3.new(1,0,0), -- right/D
+        [4] = Vector3.new(0,0,-1),-- down/S
+        [5] = Vector3.new(0,1,0), -- up
+    }
+    for i,sym in ipairs(btns) do
+        local b = Instance.new("TextButton", FlyMobileGui)
+        b.Size = UDim2.new(0,50,0,50)
+        b.Position = UDim2.new(0,10+60*(i-1),1,-60)
+        b.Text = sym
+        b.TextScaled = true
+        b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+        b.TextColor3 = Color3.new(1,1,1)
+        b.Font = Enum.Font.ArialBold
+        b.ZIndex = 50
+        b.MouseButton1Down:Connect(function()
+            FlyDirection = directions[i]
+        end)
+        b.MouseButton1Up:Connect(function()
+            FlyDirection = Vector3.new(0,0,0)
+        end)
+        b.TouchTap:Connect(function()
+            FlyDirection = directions[i]
+        end)
+        b.TouchLongPressEnded:Connect(function()
+            FlyDirection = Vector3.new(0,0,0)
         end)
     end
 end
+local function RemoveFlyMobileUI()
+    if FlyMobileGui then FlyMobileGui:Destroy() FlyMobileGui = nil end
+end
 
---=== РАБОЧИЙ АВТОФАРМ ШАРОВ ===--
-AutoFarmEnabled = false
-local function AutoFarmBalls()
-    while AutoFarmEnabled do
-        wait(0.5)
-        local ballNames = {"Ball", "BeachBall", "Sphere", "EventBall", "SummerBall", "WinterBall"}
-        for _, ballName in pairs(ballNames) do
-            local ball = Workspace:FindFirstChild(ballName)
-            if ball and ball:IsA("Part") then
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = ball.CFrame
-                    wait(0.2)
+local function ToggleFlight()
+    if FlyEnabled then
+        CreateFlyMobileUI()
+        coroutine.wrap(function()
+            while FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
+                local root = LocalPlayer.Character.HumanoidRootPart
+                local camera = Workspace.CurrentCamera
+                local move
+                if UserInputService.TouchEnabled then
+                    move = (camera.CFrame:VectorToWorldSpace(FlyDirection))*FlySpeed/10
+                else
+                    move = Vector3.new(0,0,0)
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - camera.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + camera.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move + Vector3.new(0,-1,0) end
+                    move = move * (FlySpeed/10)
                 end
+                root.Velocity = move * 2
+                wait(0.03)
             end
-        end
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj:IsA("Part") and (string.lower(obj.Name):find("ball") or string.lower(obj.Name):find("beach")) then
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = obj.CFrame
-                    wait(0.2)
-                end
-            end
-        end
+            RemoveFlyMobileUI()
+        end)()
+    else
+        RemoveFlyMobileUI()
     end
 end
 
------------------------------------------------
--- ВКЛАДКИ UI
------------------------------------------------
-local VisualsTab = Window:CreateTab("Visuals", 4483362458)
-
-VisualsTab:CreateToggle({
-    Name = "👁️ ESP Игроков",
+--------------------------
+-- ВКЛАДКИ
+--------------------------
+local Tab1 = Window:CreateTab("Chams & Info", 4483362458)
+Tab1:CreateToggle({
+    Name = "Chams (Role ESP)",
     CurrentValue = false,
-    Callback = function(Value)
-        ESP.Enabled = Value
-        if Value then
-            Rayfield:Notify({Title = "ESP ВКЛЮЧЕН", Duration = 2})
-        else
-            for player, objects in pairs(ESP.Objects) do
-                if objects.Highlight then objects.Highlight:Destroy() end
-                if objects.Billboard then objects.Billboard:Destroy() end
+    Callback = function(v) ESPEnabled = v end,
+})
+Tab1:CreateToggle({
+    Name = "Tracers",
+    CurrentValue = false,
+    Callback = function(v) TracerEnabled = v end,
+})
+Tab1:CreateToggle({
+    Name = "Chams Dropped Gun",
+    CurrentValue = false,
+    Callback = function(v) ChamsGunEnabled = v end,
+})
+
+local Tab2 = Window:CreateTab("Gun", 4483362469)
+Tab2:CreateButton({
+    Name = "Silent Aim (coming soon)", Callback = function() Rayfield:Notify({Title="Скоро!",Content="Будет работать в следующем обновлении!",Duration=2}) end
+})
+Tab2:CreateButton({
+    Name = "Shoot Murder", Callback = function()
+        for _,p in pairs(Players:GetPlayers()) do
+            if p~=LocalPlayer and GetRole(p)=="Murderer" and LocalPlayer.Character then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
             end
-            ESP.Objects = {}
         end
-    end,
+    end
+})
+Tab2:CreateButton({
+    Name = "Grab Gun", Callback = function()
+        local g = Workspace:FindFirstChild("GunDrop")
+        if g and LocalPlayer.Character then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = g.CFrame
+        end
+    end
+})
+Tab2:CreateToggle({
+    Name = "Auto Grab Gun",
+    CurrentValue = false,
+    Callback = function(v) AutoGrabGun = v end,
 })
 
-VisualsTab:CreateToggle({
-    Name = "🧵 Трейсеры к игрокам",
-    CurrentValue = false,
-    Callback = function(Value)
-        ESP.Tracers = Value
-        if not Value then RemoveTracers() end
-    end,
-})
-
-VisualsTab:CreateToggle({
-    Name = "🔫 Подсветка пушки",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then
-            coroutine.wrap(function()
-                while VisualsTab:GetToggle("Подсветка пушки").CurrentValue do
-                    wait(1)
-                    local gun = Workspace:FindFirstChild("GunDrop")
-                    if gun then
-                        local highlight = gun:FindFirstChildOfClass("Highlight")
-                        if not highlight then
-                            highlight = Instance.new("Highlight")
-                            highlight.FillColor = Color3.new(1, 1, 0)
-                            highlight.OutlineColor = Color3.new(1, 0, 0)
-                            highlight.Parent = gun
-                        end
+local Tab3 = Window:CreateTab("Knife", 4483362482)
+Tab3:CreateButton({Name="Kill All",Callback=function()
+    for _,p in pairs(Players:GetPlayers()) do
+        if p~=LocalPlayer and p.Character then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+            wait(0.2)
+        end
+    end
+end})
+Tab3:CreateButton({Name="Kill Sheriff",Callback=function()
+    for _,p in pairs(Players:GetPlayers()) do
+        if p~=LocalPlayer and GetRole(p)=="Sheriff" and p.Character then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+            wait(0.2)
+        end
+    end
+end})
+Tab3:CreateToggle({Name="Auto Kill All",CurrentValue=false,Callback=function(v)
+    if v then
+        coroutine.wrap(function()
+            while v do
+                for _,p in pairs(Players:GetPlayers()) do
+                    if p~=LocalPlayer and p.Character then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+                        wait(0.15)
                     end
                 end
-            end)()
-        end
-    end,
+                wait(2)
+            end
+        end)()
+    end
+end
 })
 
-VisualsTab:CreateToggle({
-    Name = "⏱️ Таймер раунда",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then
-            CreateTimerUI()
-        else
-            if TimerLabel then
-                TimerLabel.Visible = false
+local Tab4 = Window:CreateTab("Auto Farm", 4483362495)
+Tab4:CreateToggle({Name="Auto Farm",CurrentValue=false,Callback=function(v) FarmEnabled=v end})
+Tab4:CreateSlider({Name="Farm Speed",Range={1,10},Increment=1,Suffix="x",CurrentValue=1,Callback=function(v) FarmSpeed=v end})
+Tab4:CreateButton({Name="Fling Murder",Callback=function()
+    for _,p in pairs(Players:GetPlayers()) do
+        if p~=LocalPlayer and GetRole(p)=="Murderer" and p.Character then
+            local hrp = p.Character.HumanoidRootPart
+            local bv = Instance.new("BodyVelocity", hrp)
+            bv.Velocity = Vector3.new(9999,9999,9999)
+            bv.MaxForce = Vector3.new(99999,99999,99999)
+            wait(0.3) bv:Destroy()
+        end
+    end
+end})
+Tab4:CreateButton({Name="Reset When Full",Callback=function() LocalPlayer.Character:BreakJoints() end})
+Tab4:CreateButton({Name="Full",Callback=function() LocalPlayer.Character:BreakJoints() end})
+Tab4:CreateButton({Name="Kill All When Full (Murder Only)",Callback=function()
+    if GetRole(LocalPlayer)=="Murderer" then
+        for _,p in pairs(Players:GetPlayers()) do
+            if p~=LocalPlayer and p.Character then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+                wait(0.15)
             end
         end
-    end,
-})
+    end
+end})
 
-local CombatTab = Window:CreateTab("Combat", 7733912645)
-CombatTab:CreateButton({
-    Name = "💀 Убить всех",
-    Callback = function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                wait(0.2)
-            end
+local Tab5 = Window:CreateTab("Miss", 4483362508)
+local playerList = {}
+for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then table.insert(playerList,p.Name) end end
+local SelectedPlayer = playerList[1] or ""
+Tab5:CreateDropdown({Name="Select Player To Fling",Options=playerList,CurrentOption=SelectedPlayer,Callback=function(opt) SelectedPlayer=opt end})
+Tab5:CreateButton({Name="Fling Player",Callback=function()
+    for _,p in pairs(Players:GetPlayers()) do
+        if p.Name==SelectedPlayer and p.Character then
+            local hrp = p.Character.HumanoidRootPart
+            local bv = Instance.new("BodyVelocity", hrp)
+            bv.Velocity = Vector3.new(9999,9999,9999)
+            bv.MaxForce = Vector3.new(99999,99999,99999)
+            wait(0.3) bv:Destroy()
         end
-        Rayfield:Notify({Title = "Все игроки убиты!", Duration = 3})
     end
-})
-CombatTab:CreateButton({
-    Name = "🔫 Убить шерифа",
-    Callback = function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                for _, tool in ipairs(player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") and string.lower(tool.Name):find("gun") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                        Rayfield:Notify({Title = "Шериф убит!", Content = player.Name, Duration = 3})
-                        return
-                    end
-                end
-            end
+end})
+Tab5:CreateButton({Name="Fling Murder",Callback=function()
+    for _,p in pairs(Players:GetPlayers()) do
+        if GetRole(p)=="Murderer" and p.Character then
+            local hrp = p.Character.HumanoidRootPart
+            local bv = Instance.new("BodyVelocity", hrp)
+            bv.Velocity = Vector3.new(9999,9999,9999)
+            bv.MaxForce = Vector3.new(99999,99999,99999)
+            wait(0.3) bv:Destroy()
         end
-        Rayfield:Notify({Title = "Шериф не найден", Duration = 3})
     end
-})
+end})
+Tab5:CreateButton({Name="Fling Sheriff/Hero",Callback=function()
+    for _,p in pairs(Players:GetPlayers()) do
+        local role = GetRole(p)
+        if (role=="Sheriff" or role=="Hero") and p.Character then
+            local hrp = p.Character.HumanoidRootPart
+            local bv = Instance.new("BodyVelocity", hrp)
+            bv.Velocity = Vector3.new(9999,9999,9999)
+            bv.MaxForce = Vector3.new(99999,99999,99999)
+            wait(0.3) bv:Destroy()
+        end
+    end
+end})
 
-local MovementTab = Window:CreateTab("Movement", 7733920848)
-MovementTab:CreateToggle({
-    Name = "🕊️ Полёт",
-    CurrentValue = false,
-    Callback = function(Value)
-        FlyEnabled = Value
-        if Value then
-            ToggleFlight()
-            Rayfield:Notify({Title = "Полёт ВКЛЮЧЕН", Content = "WASD + E/Q", Duration = 3})
-        else
-            Rayfield:Notify({Title = "Полёт ВЫКЛЮЧЕН", Duration = 2})
-        end
-    end,
-})
-MovementTab:CreateSlider({
-    Name = "Скорость полёта",
-    Range = {10, 100},
-    Increment = 5,
-    Suffix = "speed",
-    CurrentValue = 50,
-    Callback = function(Value)
-        FlySpeed = Value
-    end,
-})
-
-local FarmTab = Window:CreateTab("Farm", 7733965351)
-FarmTab:CreateToggle({
-    Name = "💰 Автофарм шаров",
-    CurrentValue = false,
-    Callback = function(Value)
-        AutoFarmEnabled = Value
-        if Value then
-            coroutine.wrap(AutoFarmBalls)()
-            Rayfield:Notify({Title = "Автофарм ЗАПУЩЕН", Duration = 3})
-        else
-            Rayfield:Notify({Title = "Автофарм ОСТАНОВЛЕН", Duration = 2})
-        end
-    end,
-})
-FarmTab:CreateButton({
-    Name = "🔫 Взять пушку",
-    Callback = function()
-        local gun = Workspace:FindFirstChild("GunDrop")
-        if gun and LocalPlayer.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = gun.CFrame
-            Rayfield:Notify({Title = "Пушка взята!", Duration = 3})
-        else
-            Rayfield:Notify({Title = "Пушка не найдена", Duration = 3})
-        end
-    end
-})
-
-local TrollTab = Window:CreateTab("Troll", 7733912645)
-TrollTab:CreateButton({
-    Name = "🌀 Флинг всех",
-    Callback = function()
-        local successCount = 0
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                if FlingPlayer(player) then
-                    successCount = successCount + 1
-                end
-            end
-        end
-        Rayfield:Notify({Title = "Флинг завершен", Content = "Зафлинжено: " .. successCount, Duration = 3})
-    end
-})
-TrollTab:CreateButton({
-    Name = "🔪 Флинг убийцы",
-    Callback = function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                for _, tool in ipairs(player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") and string.lower(tool.Name):find("knife") then
-                        if FlingPlayer(player) then
-                            Rayfield:Notify({Title = "Убийца зафлинжен!", Content = player.Name, Duration = 3})
-                        end
-                        return
-                    end
-                end
-            end
-        end
-        Rayfield:Notify({Title = "Убийца не найден", Duration = 3})
-    end
-})
-TrollTab:CreateButton({
-    Name = "🔫 Флинг шерифа",
-    Callback = function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                for _, tool in ipairs(player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") and string.lower(tool.Name):find("gun") then
-                        if FlingPlayer(player) then
-                            Rayfield:Notify({Title = "Шериф зафлинжен!", Content = player.Name, Duration = 3})
-                        end
-                        return
-                    end
-                end
-            end
-        end
-        Rayfield:Notify({Title = "Шериф не найден", Duration = 3})
-    end
-})
-
-local SettingsTab = Window:CreateTab("Settings", 7733965351)
-SettingsTab:CreateDropdown({
-    Name = "🎨 Тема интерфейса",
-    Options = {"Dark", "Red", "Blue", "Green", "Purple"},
-    CurrentOption = "Dark",
-    Callback = function(Option)
+local Tab6 = Window:CreateTab("Setting", 4483362521)
+Tab6:CreateDropdown({
+    Name="Select Theme",
+    Options={"Dark","Amber","Red","Sky","Rose"},
+    CurrentOption="Dark",
+    Callback=function(opt)
+        CurrentTheme = opt
         local themes = {
-            Dark = Color3.fromRGB(25, 25, 25),
-            Red = Color3.fromRGB(255, 0, 0),
-            Blue = Color3.fromRGB(0, 100, 255),
-            Green = Color3.fromRGB(0, 255, 0),
-            Purple = Color3.fromRGB(128, 0, 128)
+            Dark = Color3.fromRGB(25,25,25),
+            Amber = Color3.fromRGB(255,191,0),
+            Red = Color3.fromRGB(255,0,64),
+            Sky = Color3.fromRGB(0,191,255),
+            Rose = Color3.fromRGB(255,0,127)
         }
-        Window:ChangeColor(themes[Option])
-        Rayfield:Notify({Title = "Тема изменена", Content = Option, Duration = 2})
+        Window:ChangeColor(themes[opt])
+    end
+})
+Tab6:CreateSlider({
+    Name = "Window Transparency",
+    Range = {0,1},
+    Increment = 0.05,
+    Suffix = "",
+    CurrentValue = 0,
+    Callback = function(v)
+        WindowTransparency = v
+        Window:SetTransparency(v)
     end,
 })
 
------------------------------------------------
+local Tab7 = Window:CreateTab("Credits", 4483362534)
+Tab7:CreateParagraph({
+    Title="PauseGpam",
+    Content="Скоро обновление! Хотите предложить что добавить? Пишите в Telegram: PauseGpam"
+})
+
+--------------------------
 -- ОСНОВНОЙ ЦИКЛ
------------------------------------------------
+--------------------------
 RunService.Heartbeat:Connect(function()
-    if ESP.Enabled then
-        UpdateESP()
+    if ESPEnabled then UpdateESP() end
+    if TracerEnabled then UpdateTracers() end
+    if ChamsGunEnabled then ChamsDroppedGun() end
+    if AutoGrabGun then
+        local g = Workspace:FindFirstChild("GunDrop")
+        if g and LocalPlayer.Character then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = g.CFrame
+        end
     end
-    if ESP.Tracers then
-        UpdateTracers()
-    end
-    if TimerLabel and TimerLabel.Visible then
-        UpdateTimer()
+    if FarmEnabled then
+        local ballNames = {"Ball", "BeachBall", "Sphere", "EventBall", "SummerBall", "WinterBall"}
+        for _,bname in pairs(ballNames) do
+            local b = Workspace:FindFirstChild(bname)
+            if b and LocalPlayer.Character then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = b.CFrame
+                wait(0.2/FarmSpeed)
+            end
+        end
     end
 end)
 
 local VirtualUser = game:GetService("VirtualUser")
-game:GetService("Players").LocalPlayer.Idled:connect(function()
+Players.LocalPlayer.Idled:connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-Rayfield:Notify({
-    Title = "🎮 MM2 CHEAT v10.1 ЗАГРУЖЕН!",
-    Content = "ВСЕ ФУНКЦИИ РАБОТАЮТ!",
-    Duration = 6,
-})
-
-print("✅ MM2 Ultimate Cheat v10.1 АКТИВИРОВАН!")
-print("✅ ESP РАБОТАЕТ (Убийца — КРАСНЫЙ)")
-print("✅ Трейсеры работают")
-print("✅ Таймер раунда отображается")
-print("✅ Все функции рабочие!")
+print("MM2 Ultimate Cheat v11.0 loaded!")

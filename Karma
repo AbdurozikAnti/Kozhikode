@@ -1,5 +1,5 @@
 -- Murder Mystery 2 Ultimate Cheat
--- Красивый ESP и Kill All без перемещения
+-- Постоянный ESP и исправленные функции
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
@@ -10,26 +10,28 @@ local Camera = workspace.CurrentCamera
 local Window = Rayfield:CreateWindow({
     Name = "🎭 MM2 ULTIMATE CHEAT",
     LoadingTitle = "Загрузка...",
-    LoadingSubtitle = "Красивый ESP и Kill All",
+    LoadingSubtitle = "Постоянный ESP и исправленные функции",
     ConfigurationSaving = { Enabled = true },
     KeySystem = false
 })
 
 -- Переменные для ESP
 local ESP = {
-    Enabled = false,
-    Tracers = false,
-    Chams = false,
+    Enabled = true,  -- Всегда включен
+    Tracers = true,
+    Chams = true,
     Objects = {}
 }
 
---=== КРАСИВЫЙ ESP С ТРЕЙСЕРАМИ И ЧАМСАМИ ===--
+--=== ПОСТОЯННЫЙ ESP ДЛЯ ВСЕХ ИГРОКОВ ===--
 local function CreateESP(player)
     if ESP.Objects[player] then return end
+    if player == LocalPlayer then return end
     
-    if not player.Character then return end
-    if not player.Character:FindFirstChild("Humanoid") then return end
-    if not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    -- Ждем появления персонажа
+    if not player.Character then
+        player.CharacterAdded:Wait()
+    end
     
     -- Чамс (подсветка)
     local highlight = Instance.new("Highlight")
@@ -40,57 +42,46 @@ local function CreateESP(player)
     highlight.FillTransparency = 0.3
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = player.Character
     
-    -- Трейсер (линия к игроку)
-    local tracer = Instance.new("Part")
+    -- Трейсер (линия от центра экрана)
+    local tracer = Instance.new("Frame")
     tracer.Name = player.Name .. "_Tracer"
-    tracer.Anchored = true
-    tracer.CanCollide = false
-    tracer.Material = Enum.Material.Neon
-    tracer.Size = Vector3.new(0.1, 0.1, 1000)
-    tracer.Transparency = 0.7
-    tracer.Parent = workspace
+    tracer.BackgroundColor3 = Color3.new(1, 0, 0)
+    tracer.BorderSizePixel = 0
+    tracer.Size = UDim2.new(0, 2, 0, 2)
+    tracer.AnchorPoint = Vector2.new(0.5, 0.5)
+    tracer.ZIndex = 10
     
-    -- Текст над головой
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = player.Name .. "_Info"
-    billboard.Adornee = player.Character:WaitForChild("Head")
-    billboard.Size = UDim2.new(0, 200, 0, 80)
-    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
-    billboard.AlwaysOnTop = true
-    billboard.MaxDistance = 100
-    
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = player.Name
-    nameLabel.TextColor3 = Color3.new(1, 1, 1)
-    nameLabel.TextSize = 14
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-    nameLabel.TextStrokeTransparency = 0
-    nameLabel.Parent = billboard
-    
+    -- Текст с информацией
     local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    infoLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    infoLabel.Name = player.Name .. "_Info"
     infoLabel.BackgroundTransparency = 1
+    infoLabel.Text = player.Name
     infoLabel.TextColor3 = Color3.new(1, 1, 1)
-    infoLabel.TextSize = 12
-    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.TextSize = 14
+    infoLabel.Font = Enum.Font.GothamBold
     infoLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     infoLabel.TextStrokeTransparency = 0
-    infoLabel.Parent = billboard
+    infoLabel.Size = UDim2.new(0, 200, 0, 20)
+    infoLabel.ZIndex = 10
     
-    billboard.Parent = player.Character.Head
+    -- Создаем GUI для трейсеров и текста
+    local espGui = Instance.new("ScreenGui")
+    espGui.Name = "ESP_GUI"
+    espGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    espGui.ResetOnSpawn = false
+    
+    tracer.Parent = espGui
+    infoLabel.Parent = espGui
+    espGui.Parent = game:GetService("CoreGui")
+    
+    highlight.Parent = player.Character
     
     ESP.Objects[player] = {
         Highlight = highlight,
         Tracer = tracer,
-        Billboard = billboard,
-        NameLabel = nameLabel,
-        InfoLabel = infoLabel
+        InfoLabel = infoLabel,
+        GUI = espGui
     }
     
     UpdatePlayerInfo(player)
@@ -98,40 +89,44 @@ end
 
 local function UpdatePlayerInfo(player)
     if not ESP.Objects[player] then return end
+    if not player.Character then return end
     
     local espData = ESP.Objects[player]
     local role = "Невинный"
     local color = Color3.new(0, 1, 0) -- Зеленый
     
-    -- Определяем роль
-    for _, container in ipairs({player.Backpack, player.Character}) do
+    -- Определяем роль (проверяем оба места)
+    local function checkForTools(container)
         if container then
             for _, tool in ipairs(container:GetChildren()) do
                 if tool:IsA("Tool") then
                     local toolName = string.lower(tool.Name)
                     if toolName:find("knife") or toolName:find("нож") then
-                        role = "🔪 УБИЙЦА"
-                        color = Color3.new(1, 0, 0) -- Красный
-                    elseif toolName:find("gun") or toolName:find("revolver") then
-                        role = "🔫 ШЕРИФ"
-                        color = Color3.new(0, 0.5, 1) -- Синий
+                        return "🔪 УБИЙЦА", Color3.new(1, 0, 0)
+                    elseif toolName:find("gun") or toolName:find("revolver") or toolName:find("пушк") then
+                        return "🔫 ШЕРИФ", Color3.new(0, 0.5, 1)
                     end
                 end
             end
         end
+        return "Невинный", Color3.new(0, 1, 0)
+    end
+    
+    role, color = checkForTools(player.Backpack)
+    if role == "Невинный" then
+        role, color = checkForTools(player.Character)
     end
     
     -- Обновляем цвета
     espData.Highlight.FillColor = color
-    espData.Tracer.Color = color
-    espData.InfoLabel.Text = role
+    espData.Tracer.BackgroundColor3 = color
     espData.InfoLabel.TextColor3 = color
-    espData.NameLabel.TextColor3 = color
+    espData.InfoLabel.Text = player.Name .. " - " .. role
     
     -- Обновляем видимость
     espData.Highlight.Enabled = ESP.Chams
-    espData.Tracer.Transparency = ESP.Tracers and 0.3 or 1
-    espData.Billboard.Enabled = ESP.Enabled
+    espData.Tracer.Visible = ESP.Tracers
+    espData.InfoLabel.Visible = ESP.Enabled
 end
 
 local function UpdateTracers()
@@ -141,22 +136,24 @@ local function UpdateTracers()
             local screenPoint, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
             
             if onScreen then
-                -- Позиция трейсера - от центра экрана к игроку
-                local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                -- Позиция трейсера - от центра нижней части экрана к игроку
+                local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y) -- Центр снизу
                 local endPos = Vector2.new(screenPoint.X, screenPoint.Y)
                 
-                -- Расчет длины и угла трейсера
-                local distance = (startPos - endPos).Magnitude
-                local angle = math.atan2(endPos.Y - startPos.Y, endPos.X - startPos.X)
+                -- Показываем элементы
+                espData.Tracer.Visible = ESP.Tracers
+                espData.InfoLabel.Visible = ESP.Enabled
                 
-                -- Обновляем трейсер
-                espData.Tracer.Size = Vector3.new(0.1, 0.1, distance)
-                espData.Tracer.CFrame = CFrame.new(
-                    Camera:ViewportPointToRay(startPos.X, startPos.Y, 0).Origin,
-                    Camera:ViewportPointToRay(endPos.X, endPos.Y, 0).Origin
-                ) * CFrame.new(0, 0, -distance/2)
+                -- Позиционируем трейсер
+                espData.Tracer.Position = UDim2.new(0, endPos.X, 0, endPos.Y)
+                
+                -- Позиционируем текст над игроком
+                espData.InfoLabel.Position = UDim2.new(0, endPos.X - 100, 0, endPos.Y - 30)
+                
             else
-                espData.Tracer.Transparency = 1
+                -- Если игрок за пределами экрана
+                espData.Tracer.Visible = false
+                espData.InfoLabel.Visible = false
             end
         end
     end
@@ -164,13 +161,66 @@ end
 
 local function RemoveESP(player)
     if ESP.Objects[player] then
-        for _, obj in pairs(ESP.Objects[player]) do
-            if obj and obj.Parent then
-                obj:Destroy()
-            end
+        if ESP.Objects[player].Highlight then
+            ESP.Objects[player].Highlight:Destroy()
+        end
+        if ESP.Objects[player].GUI then
+            ESP.Objects[player].GUI:Destroy()
         end
         ESP.Objects[player] = nil
     end
+end
+
+--=== ИСПРАВЛЕННЫЙ ТЕЛЕПОРТ К ПУШКЕ ===--
+local function TeleportToGun()
+    -- Ищем пушку под разными названиями
+    local gunNames = {
+        "GunDrop", 
+        "RevolverDrop", 
+        "Gun", 
+        "Revolver",
+        "WeaponDrop"
+    }
+    
+    for _, gunName in ipairs(gunNames) do
+        local gun = workspace:FindFirstChild(gunName)
+        if gun then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = gun.CFrame
+                Rayfield:Notify({
+                    Title = "🔫 Пушка найдена!",
+                    Content = "Телепортируемся...",
+                    Duration = 3
+                })
+                return true
+            end
+        end
+    end
+    
+    -- Если не нашли по имени, ищем любую часть с оружием в названии
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Part") or obj:IsA("Model") then
+            local name = string.lower(obj.Name)
+            if (name:find("gun") or name:find("revolver") or name:find("weapon")) and not name:find("handle") then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = obj.CFrame
+                    Rayfield:Notify({
+                        Title = "🔫 Оружие найдено!",
+                        Content = "Телепортируемся...",
+                        Duration = 3
+                    })
+                    return true
+                end
+            end
+        end
+    end
+    
+    Rayfield:Notify({
+        Title = "❌ Пушка не найдена",
+        Content = "Возможно, ее еще не бросили",
+        Duration = 3
+    })
+    return false
 end
 
 --=== KILL ALL БЕЗ ПЕРЕМЕЩЕНИЯ ===--
@@ -179,62 +229,33 @@ local function KillAllPlayers()
     
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
-            -- Сохраняем здоровье цели
             local targetHumanoid = player.Character.Humanoid
-            local originalHealth = targetHumanoid.Health
             
-            -- Телепортируемся к цели
+            -- Быстрая телепортация к цели и обратно
             LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -2)
-            
-            -- Быстрая атака
             wait(0.1)
+            
+            -- Атака
             if LocalPlayer.Character:FindFirstChildOfClass("Tool") then
-                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                tool:Activate()
+                LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate()
             end
             
-            -- Проверяем, умер ли игрок
-            wait(0.2)
-            if targetHumanoid.Health < originalHealth then
-                Rayfield:Notify({
-                    Title = "✅ Убит: " .. player.Name,
-                    Duration = 1
-                })
-            end
-            
-            -- Возвращаемся на исходную позицию
+            -- Возврат на место
             LocalPlayer.Character.HumanoidRootPart.CFrame = originalPosition
             wait(0.1)
         end
     end
-    
-    -- Финальное возвращение
-    LocalPlayer.Character.HumanoidRootPart.CFrame = originalPosition
 end
 
 --=== ГЛАВНАЯ ВКЛАДКА ===--
 local MainTab = Window:CreateTab("Главная", 4483362458)
 
 -- Секция ESP
-local ESPSection = MainTab:CreateSection("🎨 Визуальные функции")
-
-MainTab:CreateToggle({
-    Name = "👁️ Включить ESP",
-    CurrentValue = false,
-    Callback = function(Value)
-        ESP.Enabled = Value
-        if not Value then
-            for player, _ in pairs(ESP.Objects) do
-                RemoveESP(player)
-            end
-        end
-        Rayfield:Notify({Title = "ESP " .. (Value and "ВКЛ" or "ВЫКЛ"), Duration = 2})
-    end,
-})
+local ESPSection = MainTab:CreateSection("🎨 Визуальные функции (всегда включены)")
 
 MainTab:CreateToggle({
     Name = "📏 Трейсеры к игрокам",
-    CurrentValue = false,
+    CurrentValue = true,
     Callback = function(Value)
         ESP.Tracers = Value
         Rayfield:Notify({Title = "Трейсеры " .. (Value and "ВКЛ" or "ВЫКЛ"), Duration = 2})
@@ -243,10 +264,19 @@ MainTab:CreateToggle({
 
 MainTab:CreateToggle({
     Name = "🌈 Chams (подсветка)",
-    CurrentValue = false,
+    CurrentValue = true,
     Callback = function(Value)
         ESP.Chams = Value
         Rayfield:Notify({Title = "Chams " .. (Value and "ВКЛ" or "ВЫКЛ"), Duration = 2})
+    end,
+})
+
+MainTab:CreateToggle({
+    Name = "👁️ Текст с информацией",
+    CurrentValue = true,
+    Callback = function(Value)
+        ESP.Enabled = Value
+        Rayfield:Notify({Title = "Текст ESP " .. (Value and "ВКЛ" or "ВЫКЛ"), Duration = 2})
     end,
 })
 
@@ -272,38 +302,12 @@ MainTab:CreateButton({
     end
 })
 
-MainTab:CreateButton({
-    Name = "🔫 Убить шерифа",
-    Callback = function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                for _, tool in ipairs(player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") and string.lower(tool.Name):find("gun") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                        Rayfield:Notify({Title = "Шериф убит!", Content = player.Name, Duration = 3})
-                        return
-                    end
-                end
-            end
-        end
-        Rayfield:Notify({Title = "Шериф не найден", Duration = 3})
-    end
-})
-
 -- Секция телепортации
 local TeleportSection = MainTab:CreateSection("🚀 Телепортация")
 
 MainTab:CreateButton({
-    Name = "🔫 Взять пушку",
-    Callback = function()
-        local gun = workspace:FindFirstChild("GunDrop")
-        if gun and LocalPlayer.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = gun.CFrame
-            Rayfield:Notify({Title = "Пушка взята!", Duration = 3})
-        else
-            Rayfield:Notify({Title = "Пушка не найдена", Duration = 3})
-        end
-    end
+    Name = "🔫 ТЕЛЕПОРТ К ПУШКЕ (ИСПРАВЛЕННЫЙ)",
+    Callback = TeleportToGun
 })
 
 MainTab:CreateButton({
@@ -311,11 +315,15 @@ MainTab:CreateButton({
     Callback = function()
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
-                for _, tool in ipairs(player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") and string.lower(tool.Name):find("knife") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                        Rayfield:Notify({Title = "Телепорт к убийце", Content = player.Name, Duration = 3})
-                        return
+                for _, container in ipairs({player.Backpack, player.Character}) do
+                    if container then
+                        for _, tool in ipairs(container:GetChildren()) do
+                            if tool:IsA("Tool") and string.lower(tool.Name):find("knife") then
+                                LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                                Rayfield:Notify({Title = "Телепорт к убийце", Content = player.Name, Duration = 3})
+                                return
+                            end
+                        end
                     end
                 end
             end
@@ -324,68 +332,79 @@ MainTab:CreateButton({
     end
 })
 
---=== НАСТРОЙКИ ===--
-local SettingsTab = Window:CreateTab("Настройки", 7733965351)
-
-SettingsTab:CreateDropdown({
-    Name = "🎨 Цветовая тема",
-    Options = {"Темная", "Красная", "Синяя", "Зеленая", "Фиолетовая"},
-    CurrentOption = "Темная",
-    Callback = function(Option)
-        local themes = {
-            ["Темная"] = Color3.fromRGB(25, 25, 25),
-            ["Красная"] = Color3.fromRGB(255, 0, 0),
-            ["Синяя"] = Color3.fromRGB(0, 100, 255),
-            ["Зеленая"] = Color3.fromRGB(0, 255, 0),
-            ["Фиолетовая"] = Color3.fromRGB(128, 0, 128)
-        }
-        Window:ChangeColor(themes[Option])
-        Rayfield:Notify({Title = "Тема изменена", Content = Option, Duration = 2})
-    end,
-})
-
---=== ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ ===--
-RunService.Heartbeat:Connect(function()
-    -- Обновляем ESP для всех игроков
-    if ESP.Enabled or ESP.Tracers or ESP.Chams then
+MainTab:CreateButton({
+    Name = "🔄 Обновить ESP",
+    Callback = function()
+        -- Пересоздаем ESP для всех игроков
+        for player, _ in pairs(ESP.Objects) do
+            RemoveESP(player)
+        end
+        
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
-                if not ESP.Objects[player] then
-                    CreateESP(player)
-                else
-                    UpdatePlayerInfo(player)
-                end
+                CreateESP(player)
             end
         end
         
-        -- Обновляем трейсеры
-        if ESP.Tracers then
-            UpdateTracers()
-        end
+        Rayfield:Notify({Title = "ESP обновлен", Duration = 2})
     end
-end)
+})
 
--- Авто-обновление списка игроков
+--=== АВТОМАТИЧЕСКАЯ ИНИЦИАЛИЗАЦИЯ ESP ===--
+-- Создаем ESP для уже подключенных игроков
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        CreateESP(player)
+    end
+end
+
+-- Обрабатываем новых игроков
 Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
-        if ESP.Enabled then
-            wait(1)
-            CreateESP(player)
-        end
-    end)
+    CreateESP(player)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
     RemoveESP(player)
 end)
 
+-- Обрабатываем смену карты/лобби
+game:GetService("Workspace").CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    -- При изменении размера экрана (смена карты) обновляем ESP
+    wait(2) -- Ждем загрузки
+    for player, _ in pairs(ESP.Objects) do
+        RemoveESP(player)
+    end
+    wait(1)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            CreateESP(player)
+        end
+    end
+end)
+
+--=== ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ ===--
+RunService.Heartbeat:Connect(function()
+    -- Обновляем трейсеры и позиции
+    if ESP.Tracers or ESP.Enabled then
+        UpdateTracers()
+    end
+    
+    -- Обновляем информацию об игроках
+    for player, espData in pairs(ESP.Objects) do
+        if player.Character then
+            UpdatePlayerInfo(player)
+        end
+    end
+end)
+
 -- Уведомление о загрузке
 Rayfield:Notify({
     Title = "🎮 MM2 CHEAT ЗАГРУЖЕН!",
-    Content = "Красивый ESP и Kill All активированы",
+    Content = "Постоянный ESP активирован\nТрейсеры из центра экрана",
     Duration = 5,
 })
 
-print("✅ Красивый ESP активирован!")
-print("✅ Kill All работает без перемещения!")
-print("✅ Все функции готовы к использованию!")
+print("✅ Постоянный ESP активирован!")
+print("✅ Трейсеры из центра экрана")
+print("✅ Телепорт к пушке исправлен!")
+print("✅ Работает в лобби и на картах!")

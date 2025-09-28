@@ -1,86 +1,194 @@
--- Интерфейс с использованием Roblox GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MM2CheatHub"
-ScreenGui.Parent = game:GetService("CoreGui")
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 300, 0, 400)
-Frame.Position = UDim2.new(0, 10, 0, 10)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Frame.Parent = ScreenGui
+local Window = Rayfield:CreateWindow({
+    Name = "Murder Mystery 2 OP",
+    LoadingTitle = "Murder Mystery 2",
+    LoadingSubtitle = "OP чит by Assistant",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "MM2Scripts",
+        FileName = "MM2Config"
+    }
+})
 
-local UIGridLayout = Instance.new("UIGridLayout")
-UIGridLayout.CellSize = UDim2.new(1, -10, 0, 40)
-UIGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
-UIGridLayout.Parent = Frame
+-- Категории
+local CombatTab = Window:CreateTab("Combat")
+local VisualsTab = Window:CreateTab("Visuals")
+local AutomationTab = Window:CreateTab("Automation")
+local MovementTab = Window:CreateTab("Movement")
+local SettingsTab = Window:CreateTab("Settings")
 
-local function createToggleButton(name, callback)
-    local btn = Instance.new("TextButton")
-    btn.Text = name
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.AutoButtonColor = true
-    btn.MouseButton1Click:Connect(callback)
-    btn.Parent = Frame
-    return btn
-end
+-- Боевые (Combat)
 
--- Функции чита
-local ESPEnabled = false
-local AutoFarmEnabled = false
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
--- Простая подсветка игроков (ESP)
-local function toggleESP()
-    ESPEnabled = not ESPEnabled
-    if ESPEnabled then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local box = Instance.new("BoxHandleAdornment")
-                box.Name = "ESPGuiBox"
-                box.Adornee = player.Character.HumanoidRootPart
-                box.Size = Vector3.new(4, 6, 4)
-                box.Color3 = Color3.new(1, 0, 0)
-                box.AlwaysOnTop = true
-                box.Parent = player.Character.HumanoidRootPart
-            end
-        end
-    else
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local adornment = player.Character.HumanoidRootPart:FindFirstChild("ESPGuiBox")
-                if adornment then adornment:Destroy() end
-            end
-        end
-    end
-end
-
--- Автофарм простой пример (собирать мячики рядом)
-local function autofarm()
-    while AutoFarmEnabled do
-        local workspace = game:GetService("Workspace")
-        for _, item in pairs(workspace:GetChildren()) do
-            if item.Name == "Coin" or item.Name == "Candy" then
-                local plr = Players.LocalPlayer
-                if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    plr.Character.HumanoidRootPart.CFrame = item.CFrame
+local killAllToggle = CombatTab:CreateToggle({
+    Name = "Kill All (Маньяк)",
+    CurrentValue = false,
+    Callback = function(value)
+        if value then
+            -- Автоматически атака всех (пример)
+            while killAllToggle.CurrentValue do
+                for _, player in pairs(game.Players:GetPlayers()) do
+                    if player ~= game.Players.LocalPlayer then
+                        -- Вставьте реализацию атаки тут (например, отправка события на сервер)
+                    end
                 end
-                wait(0.1)
+                wait(0.5)
             end
         end
-        wait(1)
     end
-end
+})
 
-local function toggleAutoFarm()
-    AutoFarmEnabled = not AutoFarmEnabled
-    if AutoFarmEnabled then
-        spawn(autofarm)
+local autoKillAuraToggle = CombatTab:CreateToggle({
+    Name = "Auto-Kill Aura",
+    CurrentValue = false,
+    Callback = function(value)
+        -- Логика атаки рядом стоящих игроков ножом
     end
-end
+})
 
--- Добавляем кнопки для управления функциями
-createToggleButton("Toggle ESP", toggleESP)
-createToggleButton("Toggle AutoFarm", toggleAutoFarm)
+local silentAimToggle = CombatTab:CreateToggle({
+    Name = "Silent Aim / Aimbot",
+    CurrentValue = false,
+    Callback = function(value)
+        -- Реализация прицела (пример, упрощённо)
+    end
+})
+
+-- Визуальные (Visuals)
+
+local ESPEnabled = false
+local ESP = {}
+
+VisualsTab:CreateToggle({
+    Name = "Enable ESP",
+    CurrentValue = false,
+    Callback = function(value)
+        ESPEnabled = value
+        if value then
+            spawn(function()
+                while ESPEnabled do
+                    for _, player in pairs(game.Players:GetPlayers()) do
+                        if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                            local color
+                            -- Цвета по ролям
+                            if player:GetAttribute("Role") == "Murderer" then
+                                color = Color3.new(1,0,0) -- красный
+                            elseif player:GetAttribute("Role") == "Sheriff" then
+                                color = Color3.new(0,0,1) -- синий
+                            else
+                                color = Color3.new(0,1,0) -- зеленый
+                            end
+                            -- Создание/обновление ESP
+                            if not ESP[player] then
+                                ESP[player] = Drawing.new("Square")
+                                ESP[player].Thickness = 2
+                                ESP[player].Filled = false
+                                ESP[player].Visible = true
+                            end
+                            local cam = workspace.CurrentCamera
+                            local vec, onScreen = cam:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+                            if onScreen then
+                                ESP[player].Position = Vector2.new(vec.X - 25, vec.Y - 25)
+                                ESP[player].Size = Vector2.new(50, 50)
+                                ESP[player].Color = color
+                                ESP[player].Visible = true
+                            else
+                                ESP[player].Visible = false
+                            end
+                        elseif ESP[player] then
+                            ESP[player].Visible = false
+                        end
+                    end
+                    wait(0.03)
+                end
+                -- Удаляем ESP при выключении
+                for _, box in pairs(ESP) do
+                    box:Remove()
+                end
+                ESP = {}
+            end)
+        else
+            -- Отключаем ESP
+            for _, box in pairs(ESP) do
+                box:Remove()
+            end
+            ESP = {}
+        end
+    end
+})
+
+-- Автоматизация (Automation)
+
+AutomationTab:CreateToggle({
+    Name = "Auto-Farm Монет и Мячей",
+    CurrentValue = false,
+    Callback = function(value)
+        -- Пример автофарма валюты
+    end
+})
+
+AutomationTab:CreateToggle({
+    Name = "Anti-AFK",
+    CurrentValue = false,
+    Callback = function(value)
+        -- Отключение кика за бездействие
+    end
+})
+
+AutomationTab:CreateToggle({
+    Name = "Auto Get Revolver (Шериф)",
+    CurrentValue = false,
+    Callback = function(value)
+        -- Автоматический подбор револьвера
+    end
+})
+
+-- Перемещение (Movement)
+
+MovementTab:CreateToggle({
+    Name = "Fly Toggle",
+    CurrentValue = false,
+    Callback = function(value)
+        -- Флай логика
+    end
+})
+
+MovementTab:CreateButton({
+    Name = "Teleport to Gun",
+    Callback = function()
+        -- Телепорт к оружию на карте
+    end
+})
+
+MovementTab:CreateSlider({
+    Name = "Walkspeed",
+    Range = {16, 100},
+    Increment = 1,
+    CurrentValue = 16,
+    Callback = function(value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+    end
+})
+
+MovementTab:CreateSlider({
+    Name = "Jump Power",
+    Range = {50, 200},
+    Increment = 1,
+    CurrentValue = 50,
+    Callback = function(value)
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
+    end
+})
+
+-- Прочие (Settings)
+
+local themeDropdown = SettingsTab:CreateDropdown({
+    Name = "Select Theme",
+    Options = {"Default", "Serenity", "Ocean"},
+    CurrentOption = "Default",
+    Callback = function(theme)
+        Rayfield:ChangeTheme(theme)
+    end
+})
+
+return Window

@@ -1,98 +1,301 @@
+-- Мобильный скрипт для Сильнейшие поля битвы
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
-local AimLockEnabled = false
-local AltLockEnabled = false
-local AutoFarmEnabled = false
+-- Конфигурация
+local Config = {
+    StableEnabled = false,
+    LockEnabled = false,
+    AltLockEnabled = false,
+    Smoothness = 0.15,
+    MaxDistance = 150
+}
+
+-- Переменные
 local Target = nil
+local Buttons = {}
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
-ScreenGui.ResetOnSpawn = false
-
-local function CreateButton(text, position)
-    local btn = Instance.new("TextButton", ScreenGui)
-    btn.Size = UDim2.new(0, 120, 0, 50)
-    btn.Position = position
-    btn.Text = text
-    btn.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.TextScaled = true
-    return btn
+-- Создание мобильного интерфейса
+function CreateMobileUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "BattleFieldMobileUI"
+    ScreenGui.Parent = game:GetService("CoreGui")
+    
+    -- Основной контейнер для кнопок
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 200, 0, 180)
+    MainFrame.Position = UDim2.new(0, 20, 0.5, -90)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    MainFrame.BackgroundTransparency = 0.3
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Parent = ScreenGui
+    
+    -- Заголовок
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    Title.Text = "🎯 Поля Битвы"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 14
+    Title.Font = Enum.Font.GothamBold
+    Title.Parent = MainFrame
+    
+    -- Кнопка STABLE [M]
+    local StableButton = Instance.new("TextButton")
+    StableButton.Size = UDim2.new(0.9, 0, 0, 40)
+    StableButton.Position = UDim2.new(0.05, 0, 0, 35)
+    StableButton.BackgroundColor3 = Color3.fromRGB(70, 130, 200)
+    StableButton.Text = "[M] STABLE"
+    StableButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StableButton.TextSize = 12
+    StableButton.Font = Enum.Font.GothamBold
+    StableButton.Parent = MainFrame
+    
+    -- Кнопка LOCK [L]
+    local LockButton = Instance.new("TextButton")
+    LockButton.Size = UDim2.new(0.9, 0, 0, 40)
+    LockButton.Position = UDim2.new(0.05, 0, 0, 80)
+    LockButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    LockButton.Text = "[L] LOCK"
+    LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    LockButton.TextSize = 12
+    LockButton.Font = Enum.Font.GothamBold
+    LockButton.Parent = MainFrame
+    
+    -- Кнопка ALT LOCK [P]
+    local AltLockButton = Instance.new("TextButton")
+    AltLockButton.Size = UDim2.new(0.9, 0, 0, 40)
+    AltLockButton.Position = UDim2.new(0.05, 0, 0, 125)
+    AltLockButton.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
+    AltLockButton.Text = "[P] ALT LOCK"
+    AltLockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AltLockButton.TextSize = 12
+    AltLockButton.Font = Enum.Font.GothamBold
+    AltLockButton.Parent = MainFrame
+    
+    -- Сохраняем кнопки
+    Buttons.Stable = StableButton
+    Buttons.Lock = LockButton
+    Buttons.AltLock = AltLockButton
+    
+    -- Обработчики нажатий
+    StableButton.MouseButton1Click:Connect(function()
+        Config.StableEnabled = not Config.StableEnabled
+        StableButton.BackgroundColor3 = Config.StableEnabled and Color3.fromRGB(40, 100, 170) or Color3.fromRGB(70, 130, 200)
+        print("🎯 STABLE: " .. (Config.StableEnabled and "ВКЛ" or "ВЫКЛ"))
+    end)
+    
+    LockButton.MouseButton1Click:Connect(function()
+        Config.LockEnabled = not Config.LockEnabled
+        LockButton.BackgroundColor3 = Config.LockEnabled and Color3.fromRGB(170, 40, 40) or Color3.fromRGB(200, 60, 60)
+        
+        if Config.LockEnabled then
+            Target = FindTarget()
+            print("🔒 LOCK: " .. (Target and "Цель: " .. Target.Name or "Цель не найдена"))
+        else
+            Target = nil
+            print("🔓 LOCK: Выкл")
+        end
+    end)
+    
+    AltLockButton.MouseButton1Click:Connect(function()
+        Config.AltLockEnabled = not Config.AltLockEnabled
+        AltLockButton.BackgroundColor3 = Config.AltLockEnabled and Color3.fromRGB(40, 150, 60) or Color3.fromRGB(60, 180, 80)
+        print("🎯 ALT LOCK: " .. (Config.AltLockEnabled and "ВКЛ" or "ВЫКЛ"))
+    end)
+    
+    -- Делаем фрейм перемещаемым
+    MakeDraggable(Title)
+    
+    return ScreenGui
 end
 
-local AimLockBtn = CreateButton("AimLock OFF", UDim2.new(0, 10, 0.8, 0))
-local AltLockBtn = CreateButton("AltLock OFF", UDim2.new(0, 140, 0.8, 0))
-local AutoFarmBtn = CreateButton("AutoFarm OFF", UDim2.new(0, 270, 0.8, 0))
+-- Функция перемещения интерфейса
+function MakeDraggable(frame)
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+    
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Parent.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Parent.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
 
--- Нахождение ближайшей цели
-local function GetClosestTarget()
-    local closest
-    local shortestDistance = math.huge
+-- Поиск цели
+function FindTarget()
+    local closest = nil
+    local closestDistance = Config.MaxDistance
+    
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local screenPos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(player.Character.HumanoidRootPart.Position)
-            if onScreen then
-                local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-                if distance < shortestDistance and distance < 150 then
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local humanoid = character:FindFirstChild("Humanoid")
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            
+            if humanoid and humanoid.Health > 0 and rootPart then
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+                
+                if distance <= closestDistance then
+                    closestDistance = distance
                     closest = player
-                    shortestDistance = distance
                 end
             end
         end
     end
+    
     return closest
 end
 
-local function AimAtTarget(target)
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        local targetPos = target.Character.HumanoidRootPart.Position
-        local screenPos = workspace.CurrentCamera:WorldToScreenPoint(targetPos)
-        if screenPos.Z > 0 then
-            -- mousemoveabs может не работать на телефоне, здесь можно добавить альтернативу или оставить заглушку
-            -- mousemoveabs(screenPos.X, screenPos.Y)
+-- Стабильное прицеливание
+function StableAim()
+    if not Config.StableEnabled or not Target then return end
+    
+    local targetChar = Target.Character
+    if not targetChar then return end
+    
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    local camera = workspace.CurrentCamera
+    
+    -- Плавное наведение
+    local currentCF = camera.CFrame
+    local targetCF = CFrame.lookAt(camera.CFrame.Position, targetRoot.Position)
+    local smoothedCF = currentCF:Lerp(targetCF, Config.Smoothness)
+    
+    camera.CFrame = smoothedCF
+end
+
+-- Основная блокировка
+function LockOn()
+    if not Config.LockEnabled then return end
+    
+    if not Target then
+        Target = FindTarget()
+        return
+    end
+    
+    local targetChar = Target.Character
+    if not targetChar then
+        Target = nil
+        return
+    end
+    
+    local humanoid = targetChar:FindFirstChild("Humanoid")
+    local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or humanoid.Health <= 0 or not rootPart then
+        Target = nil
+        return
+    end
+    
+    -- Проверка дистанции
+    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+    if distance > Config.MaxDistance then
+        Target = nil
+        return
+    end
+    
+    StableAim()
+end
+
+-- Альтернативная блокировка
+function AltLock()
+    if not Config.AltLockEnabled then return end
+    
+    local target = FindTarget()
+    if target then
+        local targetChar = target.Character
+        if targetChar then
+            local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                -- Мгновенная блокировка
+                local camera = workspace.CurrentCamera
+                camera.CFrame = CFrame.lookAt(camera.CFrame.Position, rootPart.Position)
+            end
         end
     end
 end
 
--- Кнопки включения/выключения функций
-AimLockBtn.MouseButton1Click:Connect(function()
-    AimLockEnabled = not AimLockEnabled
-    AimLockBtn.Text = "AimLock " .. (AimLockEnabled and "ON" or "OFF")
-end)
-
-AltLockBtn.MouseButton1Click:Connect(function()
-    AltLockEnabled = not AltLockEnabled
-    AltLockBtn.Text = "AltLock " .. (AltLockEnabled and "ON" or "OFF")
-end)
-
-AutoFarmBtn.MouseButton1Click:Connect(function()
-    AutoFarmEnabled = not AutoFarmEnabled
-    AutoFarmBtn.Text = "AutoFarm " .. (AutoFarmEnabled and "ON" or "OFF")
-end)
-
-RunService.RenderStepped:Connect(function()
-    if AimLockEnabled or AltLockEnabled then
-        Target = GetClosestTarget()
-        if Target then
-            AimAtTarget(Target)
+-- Индикатор статуса
+function UpdateStatus()
+    if Buttons.Lock then
+        if Config.LockEnabled and Target then
+            Buttons.Lock.Text = "[L] LOCK: " .. Target.Name
+        else
+            Buttons.Lock.Text = "[L] LOCK"
         end
     end
+end
 
-    if AutoFarmEnabled then
-        local npcList = workspace:FindFirstChild("Enemies")
-        if npcList then
-            for _, npc in pairs(npcList:GetChildren()) do
-                if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
-                    if npc:FindFirstChild("ClickDetector") then
-                        fireclickdetector(npc.ClickDetector)
-                    end
-                    wait(0.5)
+-- Инициализация
+CreateMobileUI()
+
+print("📱 Мобильный скрипт загружен!")
+print("🎯 [M] STABLE - Плавное прицеливание")
+print("🔒 [L] LOCK - Авто-блокировка")
+print("🎯 [P] ALT LOCK - Быстрая блокировка")
+
+-- Главный цикл
+RunService.RenderStepped:Connect(function()
+    if Config.LockEnabled then
+        LockOn()
+    end
+    
+    if Config.AltLockEnabled then
+        AltLock()
+    end
+    
+    UpdateStatus()
+end)
+
+-- Авто-обновление цели каждые 2 секунды
+while true do
+    wait(2)
+    if Config.LockEnabled and Target then
+        -- Проверяем что цель еще жива и в радиусе
+        local targetChar = Target.Character
+        if not targetChar then
+            Target = FindTarget()
+        else
+            local humanoid = targetChar:FindFirstChild("Humanoid")
+            local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
+            
+            if not humanoid or humanoid.Health <= 0 or not rootPart then
+                Target = FindTarget()
+            else
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+                if distance > Config.MaxDistance then
+                    Target = FindTarget()
                 end
             end
         end
     end
-end)
+end

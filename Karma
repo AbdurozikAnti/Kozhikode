@@ -1,15 +1,15 @@
 -- █▀▀ █▀▀█ █▀▀▄ █▀▀ ▀▀█▀▀ █▀▀ █▀▀█ █▀▀▄ 
 -- █░░ █▄▄█ █▀▀▄ █▀▀ ░░█░░ █▀▀ █▄▄█ █▀▀▄ 
 -- ▀▀▀ ▀░░▀ ▀▀▀░ ▀▀▀ ░░▀░░ ▀▀▀ ▀░░▀ ▀▀▀░ 
--- MM2 ULTIMATE v6.1 | Полная современная версия с вкладками
+-- MM2 ULTIMATE v0.1 | Современное меню с вкладками, всеми функциями и обновляемой инфой
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
 
--- ВЕРСИЯ
 local SCRIPT_VERSION = "v0.1"
 
 local Window = Rayfield:CreateWindow({
@@ -37,12 +37,21 @@ local CheatConfig = {
     },
     Autofarm = {
         Enabled = false
+    },
+    Knife = {
+        AutoStab = false,
+        AimKnife = false,
+        SilentKnife = false
+    },
+    Gun = {
+        AutoGrab = false,
+        ESP = false
     }
 }
 
 local ESPObjects, TracerObjects = {}, {}
 
--- 👁️ ESP: определение роли
+-- Роли
 local function GetPlayerRole(player)
     if player.Character then
         for _, tool in ipairs(player.Backpack:GetChildren()) do
@@ -67,7 +76,7 @@ local function GetPlayerRole(player)
     return "Innocent"
 end
 
--- ESP не пропадает: слушаем появление персонажа у игроков
+-- ESP
 local function RefreshPlayerESP(player)
     if player == LocalPlayer then return end
     if ESPObjects[player] then
@@ -156,7 +165,7 @@ local function SetupAllESP()
     end)
 end
 
--- Трейсеры: обычные линии от вас до игрока (HumanoidRootPart → HumanoidRootPart)
+-- Tracers
 local function CreateTracer(player)
     if player == LocalPlayer then return end
     if TracerObjects[player] then return end
@@ -193,7 +202,7 @@ local function UpdateTracers()
     end
 end
 
--- Полет (оставляем как есть)
+-- Fly
 local FlyConnection
 local function ToggleFly()
     if CheatConfig.Fly.Enabled then
@@ -214,22 +223,22 @@ local function ToggleFly()
             local root = LocalPlayer.Character.HumanoidRootPart
 
             local direction = Vector3.new(0, 0, 0)
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+            if UIS:IsKeyDown(Enum.KeyCode.W) then
                 direction = direction + camera.CFrame.LookVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+            if UIS:IsKeyDown(Enum.KeyCode.S) then
                 direction = direction - camera.CFrame.LookVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+            if UIS:IsKeyDown(Enum.KeyCode.A) then
                 direction = direction - camera.CFrame.RightVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+            if UIS:IsKeyDown(Enum.KeyCode.D) then
                 direction = direction + camera.CFrame.RightVector
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then
                 direction = direction + Vector3.new(0, 1, 0)
             end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
                 direction = direction + Vector3.new(0, -1, 0)
             end
 
@@ -246,11 +255,9 @@ local function ToggleFly()
     end
 end
 
---------------------------------------------------------------------------------
--- МЕНЮ: вкладки и секции как на скрине
---------------------------------------------------------------------------------
-
--- 1. Вкладка ESP/Chams & Info
+---------------------------------------
+-- 1. Chams & info (ESP)
+---------------------------------------
 local ESPTab = Window:CreateTab("Chams & info", 0)
 local InfoSection = ESPTab:CreateSection("Info")
 local InfoLabel = ESPTab:CreateLabel({
@@ -258,7 +265,7 @@ local InfoLabel = ESPTab:CreateLabel({
     Content = "Murder is: nil\nSheriff/Hero is: nil\nGun Dropped: No"
 })
 ESPTab:CreateToggle({
-    Name = "Chams (ESP игроки по ролям + дистанция)",
+    Name = "Chams (ESP по ролям + дистанция)",
     CurrentValue = false,
     Callback = function(Value)
         CheatConfig.ESP.Enabled = Value
@@ -302,7 +309,9 @@ ESPTab:CreateToggle({
     end
 })
 
--- 2. Вкладка Gun
+---------------------------------------
+-- 2. Gun
+---------------------------------------
 local GunTab = Window:CreateTab("Gun", 0)
 GunTab:CreateButton({
     Name = "Взять пушку",
@@ -313,37 +322,74 @@ GunTab:CreateButton({
         end
     end
 })
-
--- 3. Вкладка Knife
-local KnifeTab = Window:CreateTab("Knife", 0)
-KnifeTab:CreateButton({
-    Name = "Auto Stab (Телекилл)",
-    Callback = function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-                wait(0.2)
-            end
-        end
+GunTab:CreateToggle({
+    Name = "Auto Grab Gun",
+    CurrentValue = false,
+    Callback = function(Value)
+        CheatConfig.Gun.AutoGrab = Value
+    end
+})
+GunTab:CreateToggle({
+    Name = "ESP Gun (подсветка пушки)",
+    CurrentValue = false,
+    Callback = function(Value)
+        CheatConfig.Gun.ESP = Value
     end
 })
 
--- 4. Вкладка Autofarm
-local AutofarmTab = Window:CreateTab("Autofarm", 0)
-AutofarmTab:CreateToggle({
-    Name = "Autofarm (пример)",
+---------------------------------------
+-- 3. Knife
+---------------------------------------
+local KnifeTab = Window:CreateTab("Knife", 0)
+KnifeTab:CreateToggle({
+    Name = "Auto Stab / Телекилл",
     CurrentValue = false,
-    Callback = function(Value) CheatConfig.Autofarm.Enabled = Value end
+    Callback = function(Value)
+        CheatConfig.Knife.AutoStab = Value
+    end
+})
+KnifeTab:CreateToggle({
+    Name = "AimKnife",
+    CurrentValue = false,
+    Callback = function(Value)
+        CheatConfig.Knife.AimKnife = Value
+    end
+})
+KnifeTab:CreateToggle({
+    Name = "SilentKnife",
+    CurrentValue = false,
+    Callback = function(Value)
+        CheatConfig.Knife.SilentKnife = Value
+    end
 })
 
--- 5. Вкладка Misc
-local MiscTab = Window:CreateTab("Misc", 0)
-MiscTab:CreateButton({ Name = "Orbit", Callback = function() --[[Orbit функция]] end })
-MiscTab:CreateButton({ Name = "Fake Dash (Q)", Callback = function() --[[Fake Dash функция]] end })
-MiscTab:CreateButton({ Name = "No Slide Dash EndLag", Callback = function() --[[No Slide Dash функция]] end })
-MiscTab:CreateButton({ Name = "Keyboard", Callback = function() --[[Keyboard функция]] end })
+---------------------------------------
+-- 4. Autofarm
+---------------------------------------
+local AutofarmTab = Window:CreateTab("Autofarm", 0)
+AutofarmTab:CreateToggle({
+    Name = "Автофарм монет",
+    CurrentValue = false,
+    Callback = function(Value)
+        CheatConfig.Autofarm.Enabled = Value
+    end
+})
+AutofarmTab:CreateButton({
+    Name = "Авто-выбор карты (пример)",
+    Callback = function()
+        -- Здесь можно реализовать авто-голосование за карту
+    end
+})
+AutofarmTab:CreateButton({
+    Name = "Авто-выбор роли (пример)",
+    Callback = function()
+        -- Здесь можно реализовать попытку выбрать роль (если вообще возможно)
+    end
+})
 
--- 6. Вкладка Settings
+---------------------------------------
+-- 5. Settings
+---------------------------------------
 local SettingsTab = Window:CreateTab("Settings", 0)
 SettingsTab:CreateToggle({
     Name = "Включить полет (WASD + Space/Shift)",
@@ -361,10 +407,78 @@ SettingsTab:CreateSlider({
     CurrentValue = 50,
     Callback = function(Value) CheatConfig.Fly.Speed = Value end
 })
+SettingsTab:CreateButton({
+    Name = "Сброс/Unload меню",
+    Callback = function()
+        Rayfield:Destroy()
+    end
+})
 
---------------------------------------------------------------------------------
--- Обновление ИНФО
---------------------------------------------------------------------------------
+---------------------------------------
+-- Gun ESP Highlight (по желанию)
+---------------------------------------
+local GunESPObj
+local function UpdateGunESP()
+    if not CheatConfig.Gun.ESP then
+        if GunESPObj then
+            GunESPObj:Destroy()
+            GunESPObj = nil
+        end
+        return
+    end
+    local gun = Workspace:FindFirstChild("GunDrop")
+    if not gun then
+        if GunESPObj then
+            GunESPObj:Destroy()
+            GunESPObj = nil
+        end
+        return
+    end
+    if not GunESPObj then
+        GunESPObj = Instance.new("Highlight")
+        GunESPObj.Name = "GunESP"
+        GunESPObj.Adornee = gun
+        GunESPObj.FillColor = Color3.new(1, 1, 0)
+        GunESPObj.OutlineColor = Color3.new(1, 1, 0)
+        GunESPObj.Parent = gun
+    end
+end
+
+---------------------------------------
+-- Auto Grab Gun (по желанию)
+---------------------------------------
+local function UpdateAutoGrabGun()
+    if not CheatConfig.Gun.AutoGrab then return end
+    local gun = Workspace:FindFirstChild("GunDrop")
+    if gun and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = gun.CFrame
+    end
+end
+
+---------------------------------------
+-- Auto Stab / Knife Features (пример)
+---------------------------------------
+local function UpdateAutoStab()
+    if not CheatConfig.Knife.AutoStab then return end
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+            wait(0.2)
+        end
+    end
+end
+
+---------------------------------------
+-- Autofarm (пример)
+---------------------------------------
+local function UpdateAutofarm()
+    if not CheatConfig.Autofarm.Enabled then return end
+    -- Здесь можно реализовать автофарм монет, телепорт к монетам и т.д.
+end
+
+---------------------------------------
+-- Info обновление
+---------------------------------------
 local function UpdateInfo()
     local murderer, sheriff = "nil", "nil"
     local gun_dropped = false
@@ -382,9 +496,9 @@ local function UpdateInfo()
     InfoLabel:Set(info)
 end
 
---------------------------------------------------------------------------------
--- Основной цикл обновления (без таймеров и АФК!)
---------------------------------------------------------------------------------
+---------------------------------------
+-- Основной цикл обновления
+---------------------------------------
 RunService.Heartbeat:Connect(function()
     UpdateInfo()
     if CheatConfig.ESP.Enabled then
@@ -407,9 +521,12 @@ RunService.Heartbeat:Connect(function()
         end
         UpdateTracers()
     end
+    UpdateGunESP()
+    UpdateAutoGrabGun()
+    UpdateAutoStab()
+    UpdateAutofarm()
 end)
 
--- ESP не пропадает: следим за новым персонажем у всех игроков
 SetupAllESP()
 
 Rayfield:Notify({

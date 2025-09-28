@@ -1,4 +1,4 @@
--- Мобильный скрипт для Сильнейшие поля битвы
+-- Мобильный скрипт для Сильнейшие поля битвы (Фиксированная цель)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -17,6 +17,7 @@ local Config = {
 -- Переменные
 local Target = nil
 local Buttons = {}
+local OriginalTarget = nil -- Сохраняем оригинальную цель
 
 -- Создание мобильного интерфейса
 function CreateMobileUI()
@@ -26,8 +27,8 @@ function CreateMobileUI()
     
     -- Основной контейнер для кнопок
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 180)
-    MainFrame.Position = UDim2.new(0, 20, 0.5, -90)
+    MainFrame.Size = UDim2.new(0, 220, 0, 220)
+    MainFrame.Position = UDim2.new(0, 20, 0.5, -110)
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     MainFrame.BackgroundTransparency = 0.3
     MainFrame.BorderSizePixel = 0
@@ -43,10 +44,21 @@ function CreateMobileUI()
     Title.Font = Enum.Font.GothamBold
     Title.Parent = MainFrame
     
+    -- Кнопка выбора цели
+    local SelectButton = Instance.new("TextButton")
+    SelectButton.Size = UDim2.new(0.9, 0, 0, 35)
+    SelectButton.Position = UDim2.new(0.05, 0, 0, 35)
+    SelectButton.BackgroundColor3 = Color3.fromRGB(80, 80, 120)
+    SelectButton.Text = "🎯 ВЫБРАТЬ ЦЕЛЬ"
+    SelectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SelectButton.TextSize = 11
+    SelectButton.Font = Enum.Font.GothamBold
+    SelectButton.Parent = MainFrame
+    
     -- Кнопка STABLE [M]
     local StableButton = Instance.new("TextButton")
-    StableButton.Size = UDim2.new(0.9, 0, 0, 40)
-    StableButton.Position = UDim2.new(0.05, 0, 0, 35)
+    StableButton.Size = UDim2.new(0.9, 0, 0, 35)
+    StableButton.Position = UDim2.new(0.05, 0, 0, 75)
     StableButton.BackgroundColor3 = Color3.fromRGB(70, 130, 200)
     StableButton.Text = "[M] STABLE"
     StableButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -56,8 +68,8 @@ function CreateMobileUI()
     
     -- Кнопка LOCK [L]
     local LockButton = Instance.new("TextButton")
-    LockButton.Size = UDim2.new(0.9, 0, 0, 40)
-    LockButton.Position = UDim2.new(0.05, 0, 0, 80)
+    LockButton.Size = UDim2.new(0.9, 0, 0, 35)
+    LockButton.Position = UDim2.new(0.05, 0, 0, 115)
     LockButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     LockButton.Text = "[L] LOCK"
     LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -67,8 +79,8 @@ function CreateMobileUI()
     
     -- Кнопка ALT LOCK [P]
     local AltLockButton = Instance.new("TextButton")
-    AltLockButton.Size = UDim2.new(0.9, 0, 0, 40)
-    AltLockButton.Position = UDim2.new(0.05, 0, 0, 125)
+    AltLockButton.Size = UDim2.new(0.9, 0, 0, 35)
+    AltLockButton.Position = UDim2.new(0.05, 0, 0, 155)
     AltLockButton.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
     AltLockButton.Text = "[P] ALT LOCK"
     AltLockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -77,11 +89,24 @@ function CreateMobileUI()
     AltLockButton.Parent = MainFrame
     
     -- Сохраняем кнопки
+    Buttons.Select = SelectButton
     Buttons.Stable = StableButton
     Buttons.Lock = LockButton
     Buttons.AltLock = AltLockButton
     
     -- Обработчики нажатий
+    SelectButton.MouseButton1Click:Connect(function()
+        local newTarget = FindTarget()
+        if newTarget then
+            Target = newTarget
+            OriginalTarget = newTarget
+            SelectButton.Text = "ЦЕЛЬ: " .. (string.sub(newTarget.Name, 1, 10))
+            print("🎯 Выбрана цель: " .. newTarget.Name)
+        else
+            print("❌ Цель не найдена")
+        end
+    end)
+    
     StableButton.MouseButton1Click:Connect(function()
         Config.StableEnabled = not Config.StableEnabled
         StableButton.BackgroundColor3 = Config.StableEnabled and Color3.fromRGB(40, 100, 170) or Color3.fromRGB(70, 130, 200)
@@ -89,19 +114,27 @@ function CreateMobileUI()
     end)
     
     LockButton.MouseButton1Click:Connect(function()
+        if not Target then
+            print("❌ Сначала выберите цель!")
+            return
+        end
+        
         Config.LockEnabled = not Config.LockEnabled
         LockButton.BackgroundColor3 = Config.LockEnabled and Color3.fromRGB(170, 40, 40) or Color3.fromRGB(200, 60, 60)
         
         if Config.LockEnabled then
-            Target = FindTarget()
-            print("🔒 LOCK: " .. (Target and "Цель: " .. Target.Name or "Цель не найдена"))
+            print("🔒 LOCK: Заблокировано на " .. Target.Name)
         else
-            Target = nil
-            print("🔓 LOCK: Выкл")
+            print("🔓 LOCK: Разблокировано")
         end
     end)
     
     AltLockButton.MouseButton1Click:Connect(function()
+        if not Target then
+            print("❌ Сначала выберите цель!")
+            return
+        end
+        
         Config.AltLockEnabled = not Config.AltLockEnabled
         AltLockButton.BackgroundColor3 = Config.AltLockEnabled and Color3.fromRGB(40, 150, 60) or Color3.fromRGB(60, 180, 80)
         print("🎯 ALT LOCK: " .. (Config.AltLockEnabled and "ВКЛ" or "ВЫКЛ"))
@@ -148,7 +181,7 @@ function MakeDraggable(frame)
     end)
 end
 
--- Поиск цели
+-- Поиск цели (только для выбора)
 function FindTarget()
     local closest = nil
     local closestDistance = Config.MaxDistance
@@ -173,16 +206,35 @@ function FindTarget()
     return closest
 end
 
--- Стабильное прицеливание
-function StableAim()
-    if not Config.StableEnabled or not Target then return end
+-- Проверка валидности цели
+function IsTargetValid()
+    if not Target then return false end
     
     local targetChar = Target.Character
-    if not targetChar then return end
+    if not targetChar then return false end
     
+    local humanoid = targetChar:FindFirstChild("Humanoid")
+    local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or humanoid.Health <= 0 or not rootPart then
+        return false
+    end
+    
+    -- Проверка дистанции
+    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+    if distance > Config.MaxDistance then
+        return false
+    end
+    
+    return true
+end
+
+-- Стабильное прицеливание на выбранную цель
+function StableAim()
+    if not Config.StableEnabled or not IsTargetValid() then return end
+    
+    local targetChar = Target.Character
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then return end
-    
     local camera = workspace.CurrentCamera
     
     -- Плавное наведение
@@ -193,54 +245,35 @@ function StableAim()
     camera.CFrame = smoothedCF
 end
 
--- Основная блокировка
+-- Основная блокировка на выбранную цель
 function LockOn()
     if not Config.LockEnabled then return end
     
-    if not Target then
-        Target = FindTarget()
+    if not IsTargetValid() then
+        Config.LockEnabled = false
+        Buttons.Lock.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        Buttons.Lock.Text = "[L] LOCK"
+        print("❌ Цель потеряна! LOCK отключен")
         return
     end
     
     local targetChar = Target.Character
-    if not targetChar then
-        Target = nil
-        return
-    end
-    
-    local humanoid = targetChar:FindFirstChild("Humanoid")
-    local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
-    
-    if not humanoid or humanoid.Health <= 0 or not rootPart then
-        Target = nil
-        return
-    end
-    
-    -- Проверка дистанции
-    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
-    if distance > Config.MaxDistance then
-        Target = nil
-        return
-    end
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
     
     StableAim()
 end
 
--- Альтернативная блокировка
+-- Альтернативная блокировка на выбранную цель
 function AltLock()
-    if not Config.AltLockEnabled then return end
+    if not Config.AltLockEnabled or not IsTargetValid() then return end
     
-    local target = FindTarget()
-    if target then
-        local targetChar = target.Character
-        if targetChar then
-            local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
-            if rootPart then
-                -- Мгновенная блокировка
-                local camera = workspace.CurrentCamera
-                camera.CFrame = CFrame.lookAt(camera.CFrame.Position, rootPart.Position)
-            end
-        end
+    local targetChar = Target.Character
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    
+    if targetRoot then
+        -- Мгновенная блокировка на выбранную цель
+        local camera = workspace.CurrentCamera
+        camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetRoot.Position)
     end
 end
 
@@ -248,19 +281,35 @@ end
 function UpdateStatus()
     if Buttons.Lock then
         if Config.LockEnabled and Target then
-            Buttons.Lock.Text = "[L] LOCK: " .. Target.Name
+            Buttons.Lock.Text = "[L] LOCK: " .. string.sub(Target.Name, 1, 8)
         else
             Buttons.Lock.Text = "[L] LOCK"
         end
     end
 end
 
+-- Сброс при смерти
+LocalPlayer.CharacterAdded:Connect(function()
+    -- При возрождении сбрасываем цели
+    Target = nil
+    Config.LockEnabled = false
+    Config.AltLockEnabled = false
+    Config.StableEnabled = false
+    
+    if Buttons.Select then Buttons.Select.Text = "🎯 ВЫБРАТЬ ЦЕЛЬ" end
+    if Buttons.Lock then Buttons.Lock.Text = "[L] LOCK" end
+    if Buttons.Lock then Buttons.Lock.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end
+    if Buttons.AltLock then Buttons.AltLock.BackgroundColor3 = Color3.fromRGB(60, 180, 80) end
+    if Buttons.Stable then Buttons.Stable.BackgroundColor3 = Color3.fromRGB(70, 130, 200) end
+end)
+
 -- Инициализация
 CreateMobileUI()
 
 print("📱 Мобильный скрипт загружен!")
+print("🎯 НАЖМИТЕ 'ВЫБРАТЬ ЦЕЛЬ' для фиксации цели")
 print("🎯 [M] STABLE - Плавное прицеливание")
-print("🔒 [L] LOCK - Авто-блокировка")
+print("🔒 [L] LOCK - Блокировка на выбранной цели")
 print("🎯 [P] ALT LOCK - Быстрая блокировка")
 
 -- Главный цикл
@@ -275,27 +324,3 @@ RunService.RenderStepped:Connect(function()
     
     UpdateStatus()
 end)
-
--- Авто-обновление цели каждые 2 секунды
-while true do
-    wait(2)
-    if Config.LockEnabled and Target then
-        -- Проверяем что цель еще жива и в радиусе
-        local targetChar = Target.Character
-        if not targetChar then
-            Target = FindTarget()
-        else
-            local humanoid = targetChar:FindFirstChild("Humanoid")
-            local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
-            
-            if not humanoid or humanoid.Health <= 0 or not rootPart then
-                Target = FindTarget()
-            else
-                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
-                if distance > Config.MaxDistance then
-                    Target = FindTarget()
-                end
-            end
-        end
-    end
-end

@@ -1,18 +1,33 @@
--- Скрипт для The Strongest Battlegrounds с основными функциями stable lock, alt lock, автофарм, автоблок
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
 local AimLockEnabled = false
-local AltLockHold = false
+local AltLockEnabled = false
 local AutoFarmEnabled = false
-local AutoBlockEnabled = false
 local Target = nil
 
--- Функция нахождения ближайшей цели для прицеливания
+-- GUI
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
+ScreenGui.ResetOnSpawn = false
+
+local function CreateButton(text, position)
+    local btn = Instance.new("TextButton", ScreenGui)
+    btn.Size = UDim2.new(0, 120, 0, 50)
+    btn.Position = position
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.TextScaled = true
+    return btn
+end
+
+local AimLockBtn = CreateButton("AimLock OFF", UDim2.new(0, 10, 0.8, 0))
+local AltLockBtn = CreateButton("AltLock OFF", UDim2.new(0, 140, 0.8, 0))
+local AutoFarmBtn = CreateButton("AutoFarm OFF", UDim2.new(0, 270, 0.8, 0))
+
+-- Нахождение ближайшей цели
 local function GetClosestTarget()
     local closest
     local shortestDistance = math.huge
@@ -21,7 +36,7 @@ local function GetClosestTarget()
             local screenPos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(player.Character.HumanoidRootPart.Position)
             if onScreen then
                 local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-                if distance < shortestDistance and distance < 150 then -- Радиус поиска цели 150 пикселей
+                if distance < shortestDistance and distance < 150 then
                     closest = player
                     shortestDistance = distance
                 end
@@ -31,42 +46,35 @@ local function GetClosestTarget()
     return closest
 end
 
--- Перемещение мыши на цель (требует экзекутор с поддержкой mousemoveabs)
 local function AimAtTarget(target)
     if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
         local targetPos = target.Character.HumanoidRootPart.Position
         local screenPos = workspace.CurrentCamera:WorldToScreenPoint(targetPos)
         if screenPos.Z > 0 then
-            mousemoveabs(screenPos.X, screenPos.Y)
+            -- mousemoveabs может не работать на телефоне, здесь можно добавить альтернативу или оставить заглушку
+            -- mousemoveabs(screenPos.X, screenPos.Y)
         end
     end
 end
 
--- Обработка нажатия клавиш
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.F then
-        AimLockEnabled = not AimLockEnabled
-        print("AimLock " .. (AimLockEnabled and "включен" or "выключен"))
-    elseif input.KeyCode == Enum.KeyCode.LeftAlt then
-        AltLockHold = true
-    elseif input.KeyCode == Enum.KeyCode.T then
-        AutoFarmEnabled = not AutoFarmEnabled
-        print("AutoFarm " .. (AutoFarmEnabled and "включен" or "выключен"))
-    elseif input.KeyCode == Enum.KeyCode.B then
-        AutoBlockEnabled = not AutoBlockEnabled
-        print("AutoBlock " .. (AutoBlockEnabled and "включен" or "выключен"))
-    end
+-- Кнопки включения/выключения функций
+AimLockBtn.MouseButton1Click:Connect(function()
+    AimLockEnabled = not AimLockEnabled
+    AimLockBtn.Text = "AimLock " .. (AimLockEnabled and "ON" or "OFF")
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.LeftAlt then
-        AltLockHold = false
-    end
+AltLockBtn.MouseButton1Click:Connect(function()
+    AltLockEnabled = not AltLockEnabled
+    AltLockBtn.Text = "AltLock " .. (AltLockEnabled and "ON" or "OFF")
 end)
 
--- Основной игровой цикл скрипта
+AutoFarmBtn.MouseButton1Click:Connect(function()
+    AutoFarmEnabled = not AutoFarmEnabled
+    AutoFarmBtn.Text = "AutoFarm " .. (AutoFarmEnabled and "ON" or "OFF")
+end)
+
 RunService.RenderStepped:Connect(function()
-    if AimLockEnabled or AltLockHold then
+    if AimLockEnabled or AltLockEnabled then
         Target = GetClosestTarget()
         if Target then
             AimAtTarget(Target)
@@ -74,24 +82,17 @@ RunService.RenderStepped:Connect(function()
     end
 
     if AutoFarmEnabled then
-        local npcList = workspace.Enemies:GetChildren() -- Пример NPC для фарма, заменить на свои объекты
-        for _, npc in pairs(npcList) do
-            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
-                -- Простая атака NPC (пример)
-                LocalPlayer.Character.HumanoidRootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
-                -- Триггер атаки (зависит от механики игры)
-                fireclickdetector(npc.ClickDetector)
-                wait(0.5)
+        local npcList = workspace:FindFirstChild("Enemies")
+        if npcList then
+            for _, npc in pairs(npcList:GetChildren()) do
+                if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                    if npc:FindFirstChild("ClickDetector") then
+                        fireclickdetector(npc.ClickDetector)
+                    end
+                    wait(0.5)
+                end
             end
         end
     end
-
-    if AutoBlockEnabled then
-        -- Пример простого автоблока (физиологическая блокировка)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) -- Заглушка под блок
-        end
-    end
 end)
-
-print("Скрипт запущен. F - AimLock, Left Alt - Alt Lock, T - AutoFarm, B - AutoBlock")

@@ -1,538 +1,300 @@
--- █▀▀ █▀▀█ █▀▀▄ █▀▀ ▀▀█▀▀ █▀▀ █▀▀█ █▀▀▄ 
--- █░░ █▄▄█ █▀▀▄ █▀▀ ░░█░░ █▀▀ █▄▄█ █▀▀▄ 
--- ▀▀▀ ▀░░▀ ▀▀▀░ ▀▀▀ ░░▀░░ ▀▀▀ ▀░░▀ ▀▀▀░ 
--- MM2 ULTIMATE v0.1 | Современное меню с вкладками, всеми функциями и обновляемой инфой
+-- Подключение библиотеки Rayfield (предполагается, что вы заранее загрузили и объявили Rayfield)
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- Основное окно GUI
+local Window = Rayfield:CreateWindow({
+    Name = "MM2 Multi-Features Script",
+    LoadingTitle = "Загрузка скрипта MM2",
+    LoadingSubtitle = "by AI Assistant",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil,
+        FileName = "MM2Config"
+    }
+})
+
+-- Фреймы для отображения на экране
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local UIS = game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService")
 
-local SCRIPT_VERSION = "v0.1"
-
-local Window = Rayfield:CreateWindow({
-    Name = "Murder Mystery 2",
-    LoadingTitle = "Загрузка меню...",
-    LoadingSubtitle = SCRIPT_VERSION,
-    ConfigurationSaving = { Enabled = true },
-    KeySystem = false
-})
-
-local CheatConfig = {
-    ESP = {
-        Enabled = false,
-        Tracers = false,
-        ShowDistance = true,
-        Colors = {
-            Murderer = Color3.new(1, 0, 0),
-            Sheriff = Color3.new(0, 0, 1),
-            Innocent = Color3.new(0, 1, 0)
-        }
-    },
-    Fly = {
-        Enabled = false,
-        Speed = 50
-    },
-    Autofarm = {
-        Enabled = false
-    },
-    Knife = {
-        AutoStab = false,
-        AimKnife = false,
-        SilentKnife = false
-    },
-    Gun = {
-        AutoGrab = false,
-        ESP = false
-    }
+-- Цвета ролей
+local RoleColors = {
+    Murderer = Color3.fromRGB(255, 0, 0),
+    Sheriff = Color3.fromRGB(0, 0, 255),
+    Innocent = Color3.fromRGB(0, 255, 0),
 }
 
-local ESPObjects, TracerObjects = {}, {}
+-- ESP и трассеры
+local ESP = {}
+ESP.Players = {}
+ESP.Tracers = {}
 
--- Роли
-local function GetPlayerRole(player)
-    if player.Character then
-        for _, tool in ipairs(player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                if string.lower(tool.Name):find("knife") then
-                    return "Murderer"
-                elseif string.lower(tool.Name):find("gun") then
-                    return "Sheriff"
-                end
-            end
-        end
-        for _, tool in ipairs(player.Character:GetChildren()) do
-            if tool:IsA("Tool") then
-                if string.lower(tool.Name):find("knife") then
-                    return "Murderer"
-                elseif string.lower(tool.Name):find("gun") then
-                    return "Sheriff"
-                end
-            end
-        end
-    end
-    return "Innocent"
+function ESP:CreateBox(player)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    local box = Instance.new("BoxHandleAdornment")
+    box.Adornee = player.Character.HumanoidRootPart
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Size = Vector3.new(2, 5, 2)
+    box.Transparency = 0.5
+    box.Parent = player.Character.HumanoidRootPart
+    self.Players[player.UserId] = box
 end
 
--- ESP
-local function RefreshPlayerESP(player)
-    if player == LocalPlayer then return end
-    if ESPObjects[player] then
-        if ESPObjects[player].Highlight then ESPObjects[player].Highlight:Destroy() end
-        if ESPObjects[player].Billboard then ESPObjects[player].Billboard:Destroy() end
-        ESPObjects[player] = nil
+function ESP:UpdateBoxColor(player)
+    local box = self.Players[player.UserId]
+    if not box or not player.Character then return end
+    local role = player:FindFirstChild("Role")
+    local color = Color3.new(1, 1, 1)
+    if role then
+        color = RoleColors[role.Value] or color
     end
-    if not player.Character or not player.Character:FindFirstChild("Head") then return end
-
-    local highlight = Instance.new("Highlight")
-    highlight.Name = player.Name .. "_ESP"
-    highlight.Adornee = player.Character
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0.3
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = player.Name .. "_Info"
-    billboard.Size = UDim2.new(0, 200, 0, 60)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.Adornee = player.Character.Head
-    billboard.AlwaysOnTop = true
-
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.TextColor3 = Color3.new(1, 1, 1)
-    textLabel.TextSize = 14
-    textLabel.Font = Enum.Font.GothamBold
-    textLabel.TextStrokeTransparency = 0.3
-    textLabel.Parent = billboard
-
-    billboard.Parent = player.Character.Head
-    highlight.Parent = player.Character
-
-    ESPObjects[player] = {
-        Highlight = highlight,
-        Billboard = billboard,
-        TextLabel = textLabel
-    }
+    box.Color3 = color
 end
 
-local function UpdateESP()
-    for player, espData in pairs(ESPObjects) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local role = GetPlayerRole(player)
-            local color = CheatConfig.ESP.Colors[role]
-            local distance = math.floor(
-                (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-            )
-            local dist_str = CheatConfig.ESP.ShowDistance and (" [" .. tostring(distance) .. "m]") or ""
-            espData.Highlight.FillColor = color
-            espData.Highlight.OutlineColor = color
-            espData.TextLabel.TextColor3 = color
-            espData.TextLabel.Text = player.Name .. " - " .. role .. dist_str
-            espData.Highlight.Enabled = CheatConfig.ESP.Enabled
-            espData.Billboard.Enabled = CheatConfig.ESP.Enabled
+function ESP:RemoveBox(player)
+    if self.Players[player.UserId] then
+        self.Players[player.UserId]:Destroy()
+        self.Players[player.UserId] = nil
+    end
+end
+
+function ESP:CreateTracer(player)
+    local tracer = Drawing.new("Line")
+    tracer.Color = Color3.fromRGB(255, 255, 255)
+    tracer.Thickness = 2
+    tracer.Transparency = 1
+    self.Tracers[player.UserId] = tracer
+end
+
+function ESP:UpdateTracer(player)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then 
+        if self.Tracers[player.UserId] then
+            self.Tracers[player.UserId]:Remove()
+            self.Tracers[player.UserId] = nil
+        end
+        return 
+    end
+    local tracer = self.Tracers[player.UserId]
+    if not tracer then
+        self:CreateTracer(player)
+        tracer = self.Tracers[player.UserId]
+    end
+    local cam = Workspace.CurrentCamera
+    local rootPos = cam.CFrame.Position
+    local screenPos, onScreen = cam:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+    if onScreen then
+        tracer.From = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y)
+        tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+        local role = player:FindFirstChild("Role")
+        if role then
+            tracer.Color = RoleColors[role.Value] or Color3.new(1, 1, 1)
         else
-            if espData.Highlight then espData.Highlight:Destroy() end
-            if espData.Billboard then espData.Billboard:Destroy() end
-            ESPObjects[player] = nil
+            tracer.Color = Color3.new(1, 1, 1)
         end
+        tracer.Visible = true
+    else
+        tracer.Visible = false
     end
 end
 
-local function SetupPlayerESP(player)
-    player.CharacterAdded:Connect(function()
-        wait(1)
-        if CheatConfig.ESP.Enabled then
-            RefreshPlayerESP(player)
-        end
-    end)
-    if player.Character and CheatConfig.ESP.Enabled then
-        RefreshPlayerESP(player)
+function ESP:ClearTracers()
+    for _, tracer in pairs(self.Tracers) do
+        tracer:Remove()
     end
+    self.Tracers = {}
 end
 
-local function SetupAllESP()
+function ESP:UpdateAll()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            SetupPlayerESP(player)
-        end
-    end
-    Players.PlayerAdded:Connect(function(player)
-        SetupPlayerESP(player)
-    end)
-end
-
--- Tracers
-local function CreateTracer(player)
-    if player == LocalPlayer then return end
-    if TracerObjects[player] then return end
-
-    local tracer = Instance.new("Part")
-    tracer.Name = player.Name .. "_Tracer"
-    tracer.Anchored = true
-    tracer.CanCollide = false
-    tracer.Material = Enum.Material.Neon
-    tracer.Size = Vector3.new(0.1, 0.1, 0.1)
-    tracer.Transparency = 0.5
-    tracer.Parent = Workspace
-
-    TracerObjects[player] = tracer
-    return tracer
-end
-
-local function UpdateTracers()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local fromPos = LocalPlayer.Character.HumanoidRootPart.Position
-    for player, tracer in pairs(TracerObjects) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local toPos = player.Character.HumanoidRootPart.Position
-            local color = CheatConfig.ESP.Colors[GetPlayerRole(player)]
-            tracer.BrickColor = BrickColor.new(color)
-            tracer.Size = Vector3.new(0.1, 0.1, (fromPos - toPos).Magnitude)
-            tracer.CFrame = CFrame.lookAt(fromPos, toPos) * CFrame.new(0, 0, -tracer.Size.Z/2)
-            tracer.Transparency = CheatConfig.ESP.Tracers and 0.3 or 1
-            tracer.Parent = Workspace
-        else
-            if tracer then tracer:Destroy() end
-            TracerObjects[player] = nil
+            if not self.Players[player.UserId] then
+                self:CreateBox(player)
+            end
+            self:UpdateBoxColor(player)
+            self:UpdateTracer(player)
         end
     end
 end
 
--- Fly
-local FlyConnection
-local function ToggleFly()
-    if CheatConfig.Fly.Enabled then
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.Name = "FlyVelocity"
-        bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.Parent = LocalPlayer.Character.HumanoidRootPart
-
-        FlyConnection = RunService.Heartbeat:Connect(function()
-            if not CheatConfig.Fly.Enabled or not LocalPlayer.Character then
-                bodyVelocity:Destroy()
-                FlyConnection:Disconnect()
-                return
-            end
-
-            local camera = Workspace.CurrentCamera
-            local root = LocalPlayer.Character.HumanoidRootPart
-
-            local direction = Vector3.new(0, 0, 0)
-            if UIS:IsKeyDown(Enum.KeyCode.W) then
-                direction = direction + camera.CFrame.LookVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then
-                direction = direction - camera.CFrame.LookVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then
-                direction = direction - camera.CFrame.RightVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then
-                direction = direction + camera.CFrame.RightVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then
-                direction = direction + Vector3.new(0, 1, 0)
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
-                direction = direction + Vector3.new(0, -1, 0)
-            end
-
-            bodyVelocity.Velocity = direction * CheatConfig.Fly.Speed
-        end)
-    else
-        if FlyConnection then
-            FlyConnection:Disconnect()
-        end
-        local velocity = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FlyVelocity")
-        if velocity then
-            velocity:Destroy()
-        end
-    end
-end
-
----------------------------------------
--- 1. Chams & info (ESP)
----------------------------------------
-local ESPTab = Window:CreateTab("Chams & info", 0)
-local InfoSection = ESPTab:CreateSection("Info")
-local InfoLabel = ESPTab:CreateLabel({
-    Name = "Info",
-    Content = "Murder is: nil\nSheriff/Hero is: nil\nGun Dropped: No"
-})
-ESPTab:CreateToggle({
-    Name = "Chams (ESP по ролям + дистанция)",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.ESP.Enabled = Value
-        if not Value then
-            for player, espData in pairs(ESPObjects) do
-                if espData.Highlight then espData.Highlight:Destroy() end
-                if espData.Billboard then espData.Billboard:Destroy() end
-            end
-            ESPObjects = {}
-        else
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    RefreshPlayerESP(player)
-                end
-            end
-        end
-    end
-})
-ESPTab:CreateToggle({
-    Name = "Показывать дистанцию до игроков",
-    CurrentValue = true,
-    Callback = function(Value) CheatConfig.ESP.ShowDistance = Value end
-})
-ESPTab:CreateToggle({
-    Name = "Трейсеры (линии до игроков)",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.ESP.Tracers = Value
-        if not Value then
-            for player, tracer in pairs(TracerObjects) do
-                if tracer then tracer:Destroy() end
-            end
-            TracerObjects = {}
-        else
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    CreateTracer(player)
-                end
-            end
-        end
-    end
-})
-
----------------------------------------
--- 2. Gun
----------------------------------------
-local GunTab = Window:CreateTab("Gun", 0)
-GunTab:CreateButton({
-    Name = "Взять пушку",
-    Callback = function()
-        local gun = Workspace:FindFirstChild("GunDrop")
-        if gun then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = gun.CFrame
-        end
-    end
-})
-GunTab:CreateToggle({
-    Name = "Auto Grab Gun",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Gun.AutoGrab = Value
-    end
-})
-GunTab:CreateToggle({
-    Name = "ESP Gun (подсветка пушки)",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Gun.ESP = Value
-    end
-})
-
----------------------------------------
--- 3. Knife
----------------------------------------
-local KnifeTab = Window:CreateTab("Knife", 0)
-KnifeTab:CreateToggle({
-    Name = "Auto Stab / Телекилл",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Knife.AutoStab = Value
-    end
-})
-KnifeTab:CreateToggle({
-    Name = "AimKnife",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Knife.AimKnife = Value
-    end
-})
-KnifeTab:CreateToggle({
-    Name = "SilentKnife",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Knife.SilentKnife = Value
-    end
-})
-
----------------------------------------
--- 4. Autofarm
----------------------------------------
-local AutofarmTab = Window:CreateTab("Autofarm", 0)
-AutofarmTab:CreateToggle({
-    Name = "Автофарм монет",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Autofarm.Enabled = Value
-    end
-})
-AutofarmTab:CreateButton({
-    Name = "Авто-выбор карты (пример)",
-    Callback = function()
-        -- Здесь можно реализовать авто-голосование за карту
-    end
-})
-AutofarmTab:CreateButton({
-    Name = "Авто-выбор роли (пример)",
-    Callback = function()
-        -- Здесь можно реализовать попытку выбрать роль (если вообще возможно)
-    end
-})
-
----------------------------------------
--- 5. Settings
----------------------------------------
-local SettingsTab = Window:CreateTab("Settings", 0)
-SettingsTab:CreateToggle({
-    Name = "Включить полет (WASD + Space/Shift)",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Fly.Enabled = Value
-        ToggleFly()
-    end
-})
-SettingsTab:CreateSlider({
-    Name = "Скорость полета",
-    Range = {10, 100},
-    Increment = 5,
-    Suffix = "speed",
-    CurrentValue = 50,
-    Callback = function(Value) CheatConfig.Fly.Speed = Value end
-})
-SettingsTab:CreateButton({
-    Name = "Сброс/Unload меню",
-    Callback = function()
-        Rayfield:Destroy()
-    end
-})
-
----------------------------------------
--- Gun ESP Highlight (по желанию)
----------------------------------------
-local GunESPObj
-local function UpdateGunESP()
-    if not CheatConfig.Gun.ESP then
-        if GunESPObj then
-            GunESPObj:Destroy()
-            GunESPObj = nil
-        end
-        return
-    end
-    local gun = Workspace:FindFirstChild("GunDrop")
-    if not gun then
-        if GunESPObj then
-            GunESPObj:Destroy()
-            GunESPObj = nil
-        end
-        return
-    end
-    if not GunESPObj then
-        GunESPObj = Instance.new("Highlight")
-        GunESPObj.Name = "GunESP"
-        GunESPObj.Adornee = gun
-        GunESPObj.FillColor = Color3.new(1, 1, 0)
-        GunESPObj.OutlineColor = Color3.new(1, 1, 0)
-        GunESPObj.Parent = gun
-    end
-end
-
----------------------------------------
--- Auto Grab Gun (по желанию)
----------------------------------------
-local function UpdateAutoGrabGun()
-    if not CheatConfig.Gun.AutoGrab then return end
-    local gun = Workspace:FindFirstChild("GunDrop")
-    if gun and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = gun.CFrame
-    end
-end
-
----------------------------------------
--- Auto Stab / Knife Features (пример)
----------------------------------------
-local function UpdateAutoStab()
-    if not CheatConfig.Knife.AutoStab then return end
+-- Функции убийства и стрельбы
+function KillAll()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local knife = character:FindFirstChildOfClass("Tool")
+    if not knife or knife.Name ~= "Knife" then return end
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-            wait(0.2)
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+            local humanoid = player.Character.Humanoid
+            if humanoid.Health > 0 then
+                -- Телепортируйтесь к игроку и наносите урон ножом
+                character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
+                knife:Activate()
+                wait(0.1)
+            end
         end
     end
 end
 
----------------------------------------
--- Autofarm (пример)
----------------------------------------
-local function UpdateAutofarm()
-    if not CheatConfig.Autofarm.Enabled then return end
-    -- Здесь можно реализовать автофарм монет, телепорт к монетам и т.д.
-end
-
----------------------------------------
--- Info обновление
----------------------------------------
-local function UpdateInfo()
-    local murderer, sheriff = "nil", "nil"
-    local gun_dropped = false
+function ShootMurder()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local gun = character:FindFirstChildOfClass("Tool")
+    if not gun or gun.Name ~= "Gun" then return end
     for _, player in pairs(Players:GetPlayers()) do
-        local role = GetPlayerRole(player)
-        if role == "Murderer" then murderer = player.Name end
-        if role == "Sheriff" then sheriff = player.Name end
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+            local role = player:FindFirstChild("Role")
+            if role and role.Value == "Murderer" then
+                gun:Activate()
+                wait(0.1)
+            end
+        end
     end
-    local gun = Workspace:FindFirstChild("GunDrop")
-    gun_dropped = gun and "Yes" or "No"
-    local info =
-        "Murder is: " .. tostring(murderer) ..
-        "\nSheriff/Hero is: " .. tostring(sheriff) ..
-        "\nGun Dropped: " .. gun_dropped
-    InfoLabel:Set(info)
 end
 
----------------------------------------
--- Основной цикл обновления
----------------------------------------
-RunService.Heartbeat:Connect(function()
-    UpdateInfo()
-    if CheatConfig.ESP.Enabled then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                if not ESPObjects[player] then
-                    RefreshPlayerESP(player)
-                end
-            end
+-- Дополнительные функции
+local walkingSpeed = 30
+local jumpPower = 100
+local autoJumpEnabled = false
+local autoPickupEnabled = false
+
+function AutoPickupWeapons()
+    for _, item in pairs(Workspace:GetChildren()) do
+        if item:IsA("Tool") and item.Handle and (item.Handle.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude < 20 then
+            firetouchinterest(LocalPlayer.Character.HumanoidRootPart, item.Handle, 0)
+            firetouchinterest(LocalPlayer.Character.HumanoidRootPart, item.Handle, 1)
         end
-        UpdateESP()
     end
-    if CheatConfig.ESP.Tracers then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                if not TracerObjects[player] then
-                    CreateTracer(player)
-                end
-            end
+end
+
+-- Таймер раунда
+local TimerLabel = Instance.new("TextLabel")
+TimerLabel.Size = UDim2.new(0, 200, 0, 50)
+TimerLabel.Position = UDim2.new(0.5, -100, 0, 10)
+TimerLabel.BackgroundTransparency = 0.5
+TimerLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+TimerLabel.TextColor3 = Color3.new(1,1,1)
+TimerLabel.TextScaled = true
+TimerLabel.Parent = game.CoreGui
+
+local roundTime = 300 -- пример времени
+
+spawn(function()
+    while wait(1) do
+        if roundTime <= 0 then
+            TimerLabel.Text = "Round ended"
+            break
         end
-        UpdateTracers()
+        TimerLabel.Text = "Round Time: "..roundTime.."s"
+        roundTime = roundTime - 1
     end
-    UpdateGunESP()
-    UpdateAutoGrabGun()
-    UpdateAutoStab()
-    UpdateAutofarm()
 end)
 
-SetupAllESP()
-
-Rayfield:Notify({
-    Title = "MM2 ULTIMATE " .. SCRIPT_VERSION .. " ЗАГРУЖЕН!",
-    Content = "Современное меню, вкладки, ESP с дистанцией, трейсеры, авто-обновление инфы!",
-    Duration = 8,
+-- Панель управления через Rayfield
+local ESPToggle = Window:CreateToggle({
+    Name = "Включить ESP",
+    CurrentValue = true,
+    Flag = "espToggle",
+    Callback = function(value)
+        if not value then
+            for _, box in pairs(ESP.Players) do
+                box:Destroy()
+            end
+            ESP.Players = {}
+            ESP:ClearTracers()
+        end
+    end
 })
 
-print("MM2 ULTIMATE v0.1 АКТИВИРОВАН!")
+local KillAllToggle = Window:CreateToggle({
+    Name = "Kill All",
+    CurrentValue = false,
+    Flag = "killAllToggle"
+})
+
+local ShootMurderToggle = Window:CreateToggle({
+    Name = "Auto Shoot Murderer",
+    CurrentValue = false,
+    Flag = "shootMurderToggle"
+})
+
+local SpeedSlider = Window:CreateSlider({
+    Name = "Скорость ходьбы",
+    Range = {16, 120},
+    Increment = 1,
+    Suffix = " WalkSpeed",
+    CurrentValue = walkingSpeed,
+    Flag = "speedSlider",
+    Callback = function(value)
+        walkingSpeed = value
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = walkingSpeed
+        end
+    end
+})
+
+local JumpPowerSlider = Window:CreateSlider({
+    Name = "Сила прыжка",
+    Range = {50, 200},
+    Increment = 1,
+    Suffix = " JumpPower",
+    CurrentValue = jumpPower,
+    Flag = "jumpPowerSlider",
+    Callback = function(value)
+        jumpPower = value
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.JumpPower = jumpPower
+        end
+    end
+})
+
+local AutoJumpToggle = Window:CreateToggle({
+    Name = "Авто прыжок",
+    CurrentValue = false,
+    Flag = "autoJumpToggle",
+    Callback = function(value)
+        autoJumpEnabled = value
+    end
+})
+
+local AutoPickupToggle = Window:CreateToggle({
+    Name = "Авто подбор оружия",
+    CurrentValue = false,
+    Flag = "autoPickupToggle",
+    Callback = function(value)
+        autoPickupEnabled = value
+    end
+})
+
+-- Цикл для обновления функций
+RunService.Heartbeat:Connect(function()
+    if ESPToggle.CurrentValue then
+        ESP:UpdateAll()
+    end
+
+    if KillAllToggle.CurrentValue then
+        KillAll()
+    end
+
+    if ShootMurderToggle.CurrentValue then
+        ShootMurder()
+    end
+
+    if autoJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        if LocalPlayer.Character.Humanoid.FloorMaterial ~= Enum.Material.Air then
+            LocalPlayer.Character.Humanoid.Jump = true
+        end
+    end
+
+    if autoPickupEnabled then
+        AutoPickupWeapons()
+    end
+
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = walkingSpeed
+        LocalPlayer.Character.Humanoid.JumpPower = jumpPower
+    end
+end)

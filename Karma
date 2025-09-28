@@ -1,128 +1,234 @@
 -- █▀▀ █▀▀█ █▀▀▄ █▀▀ ▀▀█▀▀ █▀▀ █▀▀█ █▀▀▄ 
 -- █░░ █▄▄█ █▀▀▄ █▀▀ ░░█░░ █▀▀ █▄▄█ █▀▀▄ 
 -- ▀▀▀ ▀░░▀ ▀▀▀░ ▀▀▀ ░░▀░░ ▀▀▀ ▀░░▀ ▀▀▀░ 
--- ПОПУЛЯРНЫЕ ЧИТЕРСКИЕ ФИШКИ + RAYFIELD UI
+-- ДОРАБОТАННЫЙ ESP + ТРЕЙСЕРЫ + ФИКС ПОЛЕТА + ТАЙМЕРЫ
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 
 local Window = Rayfield:CreateWindow({
-    Name = "🔥 MM2 POPULAR CHEAT PACK",
-    LoadingTitle = "Загрузка популярных функций...",
-    LoadingSubtitle = "Самые востребованные читы",
+    Name = "🔥 MM2 ULTIMATE v6.0",
+    LoadingTitle = "Загрузка улучшенных функций...",
+    LoadingSubtitle = "ESP, трейсеры, таймеры активируются",
     ConfigurationSaving = { Enabled = true },
     KeySystem = false
 })
 
--- 🎯 САМЫЕ ПОПУЛЯРНЫЕ ФУНКЦИИ
-local PopularCheats = {
-    ESP = false,
-    AimBot = false,
-    NoClip = false,
-    SpeedHack = false,
-    Fly = false,
-    InfiniteJump = false,
-    AntiAfk = true,
-    AutoFarm = false,
-    KillAura = false,
-    SilentAim = false
+-- 🎯 ПЕРЕМЕННЫЕ ДЛЯ НОВЫХ ФУНКЦИЙ
+local CheatConfig = {
+    ESP = {
+        Enabled = false,
+        Tracers = false,
+        Colors = {
+            Murderer = Color3.new(1, 0, 0),    -- Красный
+            Sheriff = Color3.new(0, 0, 1),     -- Синий
+            Innocent = Color3.new(0, 1, 0)     -- Зеленый
+        }
+    },
+    Fly = {
+        Enabled = false,
+        Speed = 50
+    },
+    Timers = {
+        RoundStart = 0,
+        AFKStart = 0,
+        AFKTime = 0
+    }
 }
 
--- 👁️ ПОПУЛЯРНЫЙ ESP
-local function ToggleESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local highlight = player.Character:FindFirstChild("ESP_Highlight")
+local ESPObjects = {}
+local TracerObjects = {}
+
+-- 👁️ ДОРАБОТАННЫЙ ESP С ЦВЕТАМИ ПО РОЛЯМ
+local function GetPlayerRole(player)
+    if player.Character then
+        -- Проверяем инвентарь на нож
+        for _, tool in ipairs(player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                if string.lower(tool.Name):find("knife") then
+                    return "Murderer"
+                elseif string.lower(tool.Name):find("gun") then
+                    return "Sheriff"
+                end
+            end
+        end
+        
+        -- Проверяем инструменты в руках
+        for _, tool in ipairs(player.Character:GetChildren()) do
+            if tool:IsA("Tool") then
+                if string.lower(tool.Name):find("knife") then
+                    return "Murderer"
+                elseif string.lower(tool.Name):find("gun") then
+                    return "Sheriff"
+                end
+            end
+        end
+    end
+    return "Innocent"
+end
+
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+    if ESPObjects[player] then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = player.Name .. "_ESP"
+    highlight.Adornee = player.Character
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0.3
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = player.Name .. "_Info"
+    billboard.Size = UDim2.new(0, 200, 0, 60)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.Adornee = player.Character:WaitForChild("Head")
+    billboard.AlwaysOnTop = true
+    
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = player.Name
+    textLabel.TextColor3 = Color3.new(1, 1, 1)
+    textLabel.TextSize = 14
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextStrokeTransparency = 0.3
+    textLabel.Parent = billboard
+    
+    billboard.Parent = player.Character.Head
+    highlight.Parent = player.Character
+    
+    ESPObjects[player] = {
+        Highlight = highlight,
+        Billboard = billboard,
+        TextLabel = textLabel
+    }
+    
+    return ESPObjects[player]
+end
+
+local function UpdateESP()
+    for player, espData in pairs(ESPObjects) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local role = GetPlayerRole(player)
+            local color = CheatConfig.ESP.Colors[role]
             
-            if PopularCheats.ESP then
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "ESP_Highlight"
-                    highlight.FillColor = Color3.new(1, 0, 0)
-                    highlight.OutlineColor = Color3.new(1, 1, 1)
-                    highlight.FillTransparency = 0.5
-                    highlight.Parent = player.Character
-                end
-            else
-                if highlight then
-                    highlight:Destroy()
-                end
-            end
+            -- Обновляем цвет
+            espData.Highlight.FillColor = color
+            espData.Highlight.OutlineColor = color
+            espData.TextLabel.TextColor3 = color
+            
+            -- Обновляем текст
+            local distance = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - 
+                                       player.Character.HumanoidRootPart.Position).Magnitude)
+            espData.TextLabel.Text = player.Name .. " - " .. role .. " (" .. distance .. ")"
+            
+            -- Обновляем видимость
+            espData.Highlight.Enabled = CheatConfig.ESP.Enabled
+            espData.Billboard.Enabled = CheatConfig.ESP.Enabled
+        else
+            -- Удаляем если игрок умер
+            if espData.Highlight then espData.Highlight:Destroy() end
+            if espData.Billboard then espData.Billboard:Destroy() end
+            ESPObjects[player] = nil
         end
     end
 end
 
--- 🎯 AIMBOT (самый популярный)
-local function AimAtPlayer(target)
-    if target and target.Character then
-        local head = target.Character:FindFirstChild("Head")
-        if head then
-            Workspace.CurrentCamera.CFrame = CFrame.new(
-                Workspace.CurrentCamera.CFrame.Position,
-                head.Position
-            )
+-- 📏 СИСТЕМА ТРЕЙСЕРОВ (линии к игрокам)
+local function CreateTracer(player)
+    if player == LocalPlayer then return end
+    if TracerObjects[player] then return end
+    
+    local tracer = Instance.new("Part")
+    tracer.Name = player.Name .. "_Tracer"
+    tracer.Anchored = true
+    tracer.CanCollide = false
+    tracer.Material = Enum.Material.Neon
+    tracer.Size = Vector3.new(0.1, 0.1, 0.1)
+    tracer.Transparency = 0.7
+    
+    TracerObjects[player] = tracer
+    return tracer
+end
+
+local function UpdateTracers()
+    for player, tracer in pairs(TracerObjects) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local role = GetPlayerRole(player)
+            local color = CheatConfig.ESP.Colors[role]
+            
+            -- Позиция трейсера (линия от камеры к игроку)
+            local camera = Workspace.CurrentCamera
+            local playerPos = player.Character.HumanoidRootPart.Position
+            local cameraPos = camera.CFrame.Position
+            
+            -- Создаем луч от камеры к игроку
+            tracer.BrickColor = BrickColor.new(color)
+            tracer.Size = Vector3.new(0.1, 0.1, (playerPos - cameraPos).Magnitude)
+            tracer.CFrame = CFrame.lookAt(cameraPos, playerPos) * 
+                           CFrame.new(0, 0, -tracer.Size.Z/2)
+            tracer.Parent = Workspace
+            tracer.Transparency = CheatConfig.ESP.Tracers and 0.3 or 1
+        else
+            if tracer then tracer:Destroy() end
+            TracerObjects[player] = nil
         end
     end
 end
 
--- 🚀 NO-CLIP (очень популярно)
-local function NoClip()
-    if PopularCheats.NoClip and LocalPlayer.Character then
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    end
-end
-
--- 💨 SPEED HACK
-local function SpeedHack()
-    if PopularCheats.SpeedHack and LocalPlayer.Character then
-        LocalPlayer.Character.Humanoid.WalkSpeed = 50
-    else
-        LocalPlayer.Character.Humanoid.WalkSpeed = 16
-    end
-end
-
--- 🕊️ FLY HACK
-local function FlyHack()
-    if PopularCheats.Fly and LocalPlayer.Character then
-        local root = LocalPlayer.Character.HumanoidRootPart
-        local bodyVelocity = root:FindFirstChild("FlyVelocity") or Instance.new("BodyVelocity")
+-- 🕊️ ИСПРАВЛЕННЫЙ ПОЛЕТ
+local FlyConnection
+local function ToggleFly()
+    if CheatConfig.Fly.Enabled then
+        local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.Name = "FlyVelocity"
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
         bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
-        bodyVelocity.Parent = root
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.Parent = LocalPlayer.Character.HumanoidRootPart
         
-        -- Управление полетом
-        local camera = Workspace.CurrentCamera
-        local moveDirection = Vector3.new(0, 0, 0)
-        
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
-            moveDirection = moveDirection + camera.CFrame.LookVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
-            moveDirection = moveDirection - camera.CFrame.LookVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
-            moveDirection = moveDirection - camera.CFrame.RightVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
-            moveDirection = moveDirection + camera.CFrame.RightVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
-            moveDirection = moveDirection + Vector3.new(0, 1, 0)
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-            moveDirection = moveDirection + Vector3.new(0, -1, 0)
-        end
-        
-        bodyVelocity.Velocity = moveDirection * 50
+        FlyConnection = RunService.Heartbeat:Connect(function()
+            if not CheatConfig.Fly.Enabled or not LocalPlayer.Character then
+                bodyVelocity:Destroy()
+                FlyConnection:Disconnect()
+                return
+            end
+            
+            local camera = Workspace.CurrentCamera
+            local root = LocalPlayer.Character.HumanoidRootPart
+            
+            local direction = Vector3.new(0, 0, 0)
+            
+            -- Управление WASD
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                direction = direction + camera.CFrame.LookVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                direction = direction - camera.CFrame.LookVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+                direction = direction - camera.CFrame.RightVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+                direction = direction + camera.CFrame.RightVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                direction = direction + Vector3.new(0, 1, 0)
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                direction = direction + Vector3.new(0, -1, 0)
+            end
+            
+            bodyVelocity.Velocity = direction * CheatConfig.Fly.Speed
+        end)
     else
+        if FlyConnection then
+            FlyConnection:Disconnect()
+        end
         local velocity = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FlyVelocity")
         if velocity then
             velocity:Destroy()
@@ -130,184 +236,134 @@ local function FlyHack()
     end
 end
 
--- 🦘 INFINITE JUMP
-local function InfiniteJump()
-    game:GetService("UserInputService").JumpRequest:connect(function()
-        if PopularCheats.InfiniteJump then
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-        end
-    end)
+-- ⏰ СИСТЕМА ТАЙМЕРОВ
+local function StartRoundTimer()
+    CheatConfig.Timers.RoundStart = tick()
 end
 
--- ⚔️ KILL AURA (популярно в PVP)
-local function KillAura()
-    if PopularCheats.KillAura then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - 
-                                player.Character.HumanoidRootPart.Position).Magnitude
-                if distance < 10 then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = 
-                        player.Character.HumanoidRootPart.CFrame
-                    wait(0.1)
-                end
-            end
-        end
-    end
+local function GetRoundTime()
+    return math.floor(tick() - CheatConfig.Timers.RoundStart)
 end
 
--- 🎯 SILENT AIM
-local function SilentAim()
-    if PopularCheats.SilentAim then
-        -- Автоматическое прицеливание при стрельбе
-        local closestPlayer = nil
-        local closestDistance = math.huge
-        
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - 
-                                player.Character.HumanoidRootPart.Position).Magnitude
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestPlayer = player
-                end
-            end
-        end
-        
-        if closestPlayer then
-            AimAtPlayer(closestPlayer)
-        end
-    end
+local function FormatTime(seconds)
+    local minutes = math.floor(seconds / 60)
+    local secs = seconds % 60
+    return string.format("%02d:%02d", minutes, secs)
 end
 
--- 💰 AUTO FARM
-local function AutoFarm()
-    if PopularCheats.AutoFarm then
-        -- Поиск монет или шаров
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj.Name:lower():find("coin") or obj.Name:lower():find("ball") then
-                if LocalPlayer.Character then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = obj.CFrame
-                    wait(0.5)
+-- 🎮 АНТИ-АФК С УВЕДОМЛЕНИЕМ
+local LastPosition = nil
+local AFKStartTime = 0
+
+local function CheckAFK()
+    local currentPos = LocalPlayer.Character and 
+                      LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and
+                      LocalPlayer.Character.HumanoidRootPart.Position
+    
+    if currentPos then
+        if LastPosition and (currentPos - LastPosition).Magnitude < 1 then
+            -- Игрок не двигается
+            if AFKStartTime == 0 then
+                AFKStartTime = tick()
+            else
+                local afkTime = math.floor(tick() - AFKStartTime)
+                if afkTime > 10 and afkTime % 10 == 0 then
+                    Rayfield:Notify({
+                        Title = "⏰ ВНИМАНИЕ: ВЫ В АФК",
+                        Content = "Стоите на месте: " .. FormatTime(afkTime),
+                        Duration = 5
+                    })
                 end
             end
+        else
+            AFKStartTime = 0
         end
+        LastPosition = currentPos
     end
 end
 
 -- 🎮 ГЛАВНАЯ ВКЛАДКА
-local MainTab = Window:CreateTab("🔥 Популярные читы", 4483362458)
+local MainTab = Window:CreateTab("🔥 Главная", 4483362458)
 
--- 👁️ СЕКЦИЯ ВИЗУАЛА
-local VisualSection = MainTab:CreateSection("👁️ Визуальные читы")
-
-MainTab:CreateToggle({
-    Name = "👁️ ESP (видеть через стены)",
-    CurrentValue = false,
-    Callback = function(Value)
-        PopularCheats.ESP = Value
-        ToggleESP()
-    end
-})
+-- 👁️ СЕКЦИЯ ESP
+local ESPSection = MainTab:CreateSection("👁️ Улучшенный ESP")
 
 MainTab:CreateToggle({
-    Name = "🎯 AimBot (авто-прицеливание)",
+    Name = "🎯 Включить ESP (цвета по ролям)",
     CurrentValue = false,
     Callback = function(Value)
-        PopularCheats.AimBot = Value
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "🔫 Silent Aim (скрытное прицеливание)",
-    CurrentValue = false,
-    Callback = function(Value)
-        PopularCheats.SilentAim = Value
-    end
-})
-
--- 🚀 СЕКЦИЯ ДВИЖЕНИЯ
-local MovementSection = MainTab:CreateSection("🚀 Читы движения")
-
-MainTab:CreateToggle({
-    Name = "👻 NoClip (сквозь стены)",
-    CurrentValue = false,
-    Callback = function(Value)
-        PopularCheats.NoClip = Value
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "💨 Speed Hack (50 speed)",
-    CurrentValue = false,
-    Callback = function(Value)
-        PopularCheats.SpeedHack = Value
-        SpeedHack()
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "🕊️ Fly Hack (полет)",
-    CurrentValue = false,
-    Callback = function(Value)
-        PopularCheats.Fly = Value
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "🦘 Infinite Jump",
-    CurrentValue = false,
-    Callback = function(Value)
-        PopularCheats.InfiniteJump = Value
-        if Value then InfiniteJump() end
-    end
-})
-
--- ⚔️ СЕКЦИЯ БОЯ
-local CombatSection = MainTab:CreateSection("⚔️ Боевые читы")
-
-MainTab:CreateToggle({
-    Name = "💀 Kill Aura (авто-атака)",
-    CurrentValue = false,
-    Callback = function(Value)
-        PopularCheats.KillAura = Value
-    end
-})
-
-MainTab:CreateButton({
-    Name = "⚡ Kill All (убить всех)",
-    Callback = function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = 
-                    player.Character.HumanoidRootPart.CFrame
-                wait(0.2)
+        CheatConfig.ESP.Enabled = Value
+        if not Value then
+            -- Очищаем ESP при выключении
+            for player, espData in pairs(ESPObjects) do
+                if espData.Highlight then espData.Highlight:Destroy() end
+                if espData.Billboard then espData.Billboard:Destroy() end
             end
+            ESPObjects = {}
         end
     end
 })
 
--- 🤖 СЕКЦИЯ АВТОМАТИЗАЦИИ
-local AutoSection = MainTab:CreateSection("🤖 Автоматизация")
-
 MainTab:CreateToggle({
-    Name = "💰 Auto Farm (авто-сбор)",
+    Name = "📏 Трейсеры к игрокам",
     CurrentValue = false,
     Callback = function(Value)
-        PopularCheats.AutoFarm = Value
+        CheatConfig.ESP.Tracers = Value
+        if not Value then
+            -- Очищаем трейсеры
+            for player, tracer in pairs(TracerObjects) do
+                if tracer then tracer:Destroy() end
+            end
+            TracerObjects = {}
+        end
     end
 })
+
+-- 🚀 СЕКЦИЯ ПЕРЕМЕЩЕНИЯ
+local MoveSection = MainTab:CreateSection("🚀 Исправленный полет")
 
 MainTab:CreateToggle({
-    Name = "⏰ Anti-AFK (анти-афк)",
-    CurrentValue = true,
+    Name = "🕊️ Включить полет (WASD + Space/Shift)",
+    CurrentValue = false,
     Callback = function(Value)
-        PopularCheats.AntiAfk = Value
+        CheatConfig.Fly.Enabled = Value
+        ToggleFly()
     end
 })
 
+MainTab:CreateSlider({
+    Name = "💨 Скорость полета",
+    Range = {10, 100},
+    Increment = 5,
+    Suffix = "speed",
+    CurrentValue = 50,
+    Callback = function(Value)
+        CheatConfig.Fly.Speed = Value
+    end
+})
+
+-- ⏰ СЕКЦИЯ ТАЙМЕРОВ
+local TimerSection = MainTab:CreateSection("⏰ Таймеры и мониторинг")
+
+local RoundTimeLabel = MainTab:CreateLabel("Время раунда: 00:00")
+local AFKTimeLabel = MainTab:CreateLabel("АФК время: 00:00")
+
 MainTab:CreateButton({
-    Name = "🔫 Grab Gun (взять пушку)",
+    Name = "🔄 Перезапустить таймер раунда",
+    Callback = function()
+        StartRoundTimer()
+        Rayfield:Notify({
+            Title = "⏰ Таймер раунда перезапущен",
+            Duration = 3
+        })
+    end
+})
+
+-- 🔧 УТИЛИТЫ
+local UtilSection = MainTab:CreateSection("🔧 Утилиты")
+
+MainTab:CreateButton({
+    Name = "🔫 Взять пушку",
     Callback = function()
         local gun = Workspace:FindFirstChild("GunDrop")
         if gun then
@@ -316,93 +372,93 @@ MainTab:CreateButton({
     end
 })
 
--- 🔧 УТИЛИТЫ
-local UtilTab = Window:CreateTab("🔧 Утилиты", 7733912645)
-
-UtilTab:CreateButton({
-    Name = "🌀 Shake All (шатать всех)",
+MainTab:CreateButton({
+    Name = "💀 Kill All",
     Callback = function()
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
-                local root = player.Character.HumanoidRootPart
-                root.Velocity = Vector3.new(
-                    math.random(-100, 100),
-                    math.random(50, 100),
-                    math.random(-100, 100)
-                )
+                LocalPlayer.Character.HumanoidRootPart.CFrame = 
+                    player.Character.HumanoidRootPart.CFrame
+                wait(0.2)
             end
         end
     end
 })
 
-UtilTab:CreateButton({
-    Name = "🎯 Teleport to Murderer",
-    Callback = function()
+-- 🔄 ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ
+RunService.Heartbeat:Connect(function()
+    -- Обновление ESP
+    if CheatConfig.ESP.Enabled then
         for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                local backpack = player:FindFirstChild("Backpack")
-                if backpack then
-                    for _, tool in pairs(backpack:GetChildren()) do
-                        if tool:IsA("Tool") and string.lower(tool.Name):find("knife") then
-                            LocalPlayer.Character.HumanoidRootPart.CFrame = 
-                                player.Character.HumanoidRootPart.CFrame
-                            return
-                        end
-                    end
+            if player ~= LocalPlayer and player.Character then
+                if not ESPObjects[player] then
+                    CreateESP(player)
                 end
             end
         end
-    end
-})
-
--- 🔄 ОСНОВНОЙ ЦИКЛ
-RunService.Heartbeat:Connect(function()
-    -- NoClip
-    if PopularCheats.NoClip then
-        NoClip()
+        UpdateESP()
     end
     
-    -- Fly Hack
-    if PopularCheats.Fly then
-        FlyHack()
+    -- Обновление трейсеров
+    if CheatConfig.ESP.Tracers then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                if not TracerObjects[player] then
+                    CreateTracer(player)
+                end
+            end
+        end
+        UpdateTracers()
     end
     
-    -- Kill Aura
-    if PopularCheats.KillAura then
-        KillAura()
-    end
+    -- Обновление таймеров
+    RoundTimeLabel:Set("Время раунда: " .. FormatTime(GetRoundTime()))
     
-    -- Silent Aim
-    if PopularCheats.SilentAim then
-        SilentAim()
-    end
-    
-    -- Auto Farm
-    if PopularCheats.AutoFarm then
-        AutoFarm()
-    end
-    
-    -- ESP Update
-    if PopularCheats.ESP then
-        ToggleESP()
+    -- Проверка АФК
+    CheckAFK()
+    if AFKStartTime > 0 then
+        local afkTime = math.floor(tick() - AFKStartTime)
+        AFKTimeLabel:Set("АФК время: " .. FormatTime(afkTime))
+    else
+        AFKTimeLabel:Set("АФК время: 00:00")
     end
 end)
 
--- ⏰ ANTI-AFK SYSTEM
-if PopularCheats.AntiAfk then
-    local VirtualUser = game:GetService("VirtualUser")
-    game:GetService("Players").LocalPlayer.Idled:connect(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end)
-end
+-- 🎯 АВТОМАТИЧЕСКИЙ СТАРТ ТАЙМЕРА ПРИ ТЕЛЕПОРТЕ
+LocalPlayer.CharacterAdded:Connect(function()
+    wait(2) -- Ждем появления персонажа
+    StartRoundTimer()
+    Rayfield:Notify({
+        Title = "🎮 Начало раунда!",
+        Content = "Таймер запущен",
+        Duration = 3
+    })
+end)
+
+-- ⏰ АНТИ-АФК СИСТЕМА
+local VirtualUser = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 
 -- 🎉 УВЕДОМЛЕНИЕ О ЗАГРУЗКЕ
 Rayfield:Notify({
-    Title = "🔥 POPULAR CHEAT PACK LOADED!",
-    Content = "Самые популярные читы активированы!",
+    Title = "🔥 MM2 ULTIMATE v6.0 ЗАГРУЖЕН!",
+    Content = "Доработанный ESP + трейсеры + исправленный полет + таймеры!",
     Duration = 6,
 })
 
-print("🎮 Самые популярные читы для MM2 загружены!")
-print("✅ Все функции готовы к использованию!")
+-- 🚀 АВТОМАТИЧЕСКИЙ СТАРТ
+StartRoundTimer()
+
+print([[
+    
+🔥 MM2 ULTIMATE v6.0 АКТИВИРОВАН!
+✅ ESP с цветами по ролям
+✅ Рабочие трейсеры  
+✅ Исправленный полет
+✅ Таймер раунда и АФК
+✅ Все функции готовы!
+
+]])

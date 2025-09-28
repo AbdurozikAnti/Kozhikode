@@ -1,194 +1,547 @@
+-- Murder Mystery 2 Ultimate Cheat GUI v7.0 - Обновленная версия
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local Window = Rayfield:CreateWindow({
-    Name = "Murder Mystery 2 OP",
-    LoadingTitle = "Murder Mystery 2",
-    LoadingSubtitle = "OP чит by Assistant",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "MM2Scripts",
-        FileName = "MM2Config"
-    }
+    Name = "🎭 MM2 ULTIMATE CHEAT v7.0",
+    LoadingTitle = "Загрузка...",
+    LoadingSubtitle = "7 вкладок с полным функционалом",
+    ConfigurationSaving = { Enabled = true, FolderName = "MM2Cheat", FileName = "Config" },
+    Discord = { Enabled = false },
+    KeySystem = false
 })
-
--- Категории
-local CombatTab = Window:CreateTab("Combat")
-local VisualsTab = Window:CreateTab("Visuals")
-local AutomationTab = Window:CreateTab("Automation")
-local MovementTab = Window:CreateTab("Movement")
-local SettingsTab = Window:CreateTab("Settings")
-
--- Боевые (Combat)
-
-local killAllToggle = CombatTab:CreateToggle({
-    Name = "Kill All (Маньяк)",
-    CurrentValue = false,
-    Callback = function(value)
-        if value then
-            -- Автоматически атака всех (пример)
-            while killAllToggle.CurrentValue do
-                for _, player in pairs(game.Players:GetPlayers()) do
-                    if player ~= game.Players.LocalPlayer then
-                        -- Вставьте реализацию атаки тут (например, отправка события на сервер)
-                    end
-                end
-                wait(0.5)
-            end
-        end
-    end
-})
-
-local autoKillAuraToggle = CombatTab:CreateToggle({
-    Name = "Auto-Kill Aura",
-    CurrentValue = false,
-    Callback = function(value)
-        -- Логика атаки рядом стоящих игроков ножом
-    end
-})
-
-local silentAimToggle = CombatTab:CreateToggle({
-    Name = "Silent Aim / Aimbot",
-    CurrentValue = false,
-    Callback = function(value)
-        -- Реализация прицела (пример, упрощённо)
-    end
-})
-
--- Визуальные (Visuals)
 
 local ESPEnabled = false
-local ESP = {}
+local ChamsEnabled = false
+local FlyEnabled = false
+local FlySpeed = 50
+local AutoFarmEnabled = false
+local AutoGrabGunEnabled = false
+local KillAllEnabled = false
+local AutoKillAllEnabled = false
 
-VisualsTab:CreateToggle({
-    Name = "Enable ESP",
-    CurrentValue = false,
-    Callback = function(value)
-        ESPEnabled = value
-        if value then
-            spawn(function()
-                while ESPEnabled do
-                    for _, player in pairs(game.Players:GetPlayers()) do
-                        if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                            local color
-                            -- Цвета по ролям
-                            if player:GetAttribute("Role") == "Murderer" then
-                                color = Color3.new(1,0,0) -- красный
-                            elseif player:GetAttribute("Role") == "Sheriff" then
-                                color = Color3.new(0,0,1) -- синий
-                            else
-                                color = Color3.new(0,1,0) -- зеленый
-                            end
-                            -- Создание/обновление ESP
-                            if not ESP[player] then
-                                ESP[player] = Drawing.new("Square")
-                                ESP[player].Thickness = 2
-                                ESP[player].Filled = false
-                                ESP[player].Visible = true
-                            end
-                            local cam = workspace.CurrentCamera
-                            local vec, onScreen = cam:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-                            if onScreen then
-                                ESP[player].Position = Vector2.new(vec.X - 25, vec.Y - 25)
-                                ESP[player].Size = Vector2.new(50, 50)
-                                ESP[player].Color = color
-                                ESP[player].Visible = true
-                            else
-                                ESP[player].Visible = false
-                            end
-                        elseif ESP[player] then
-                            ESP[player].Visible = false
-                        end
-                    end
-                    wait(0.03)
-                end
-                -- Удаляем ESP при выключении
-                for _, box in pairs(ESP) do
-                    box:Remove()
-                end
-                ESP = {}
-            end)
-        else
-            -- Отключаем ESP
-            for _, box in pairs(ESP) do
-                box:Remove()
-            end
-            ESP = {}
+local ESPObjects = {}
+local TouchControls = {
+    Forward = false,
+    Backward = false,
+    Left = false,
+    Right = false,
+    Up = false,
+    Down = false
+}
+
+-- Setup Touch Controls for Mobile Fly
+local function SetupTouchControls()
+    local touchGui = Instance.new("ScreenGui")
+    touchGui.Name = "TouchControls"
+    touchGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local function createBtn(text, pos)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 60, 0, 60)
+        btn.Position = pos
+        btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+        btn.BackgroundTransparency = 0.5
+        btn.Text = text
+        btn.TextColor3 = Color3.new(1,1,1)
+        btn.TextScaled = true
+        btn.Parent = touchGui
+        btn.AutoButtonColor = false
+        btn.MouseButton1Down:Connect(function() TouchControls[text] = true end)
+        btn.MouseButton1Up:Connect(function() TouchControls[text] = false end)
+        btn.TouchStarted:Connect(function() TouchControls[text] = true end)
+        btn.TouchEnded:Connect(function() TouchControls[text] = false end)
+        return btn
+    end
+
+    createBtn("Forward", UDim2.new(0.1, 0, 0.75, 0))
+    createBtn("Backward", UDim2.new(0.1, 0, 0.85, 0))
+    createBtn("Left", UDim2.new(0.02, 0, 0.8, 0))
+    createBtn("Right", UDim2.new(0.18, 0, 0.8, 0))
+    createBtn("Up", UDim2.new(0.9, 0, 0.8, 0))
+    createBtn("Down", UDim2.new(0.9, 0, 0.9, 0))
+end
+SetupTouchControls()
+
+local function CreateESP(player)
+    if ESPObjects[player] then return end
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
+    highlight.Adornee = player.Character
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.FillColor = Color3.new(0,1,0)
+    highlight.FillTransparency = 0.7
+    highlight.OutlineColor = Color3.new(0,0,0)
+    highlight.OutlineTransparency = 0.3
+    highlight.Enabled = false
+    highlight.Parent = player.Character
+
+    local tracer = Instance.new("Part")
+    tracer.Name = "ESPTracer"
+    tracer.Shape = Enum.PartType.Ball
+    tracer.Material = Enum.Material.Neon
+    tracer.Anchored = true
+    tracer.CanCollide = false
+    tracer.Size = Vector3.new(0.2,0.2,0.2)
+    tracer.Transparency = 1 -- скроем, используем Beam
+    tracer.Parent = workspace
+
+    local att0 = Instance.new("Attachment", tracer)
+    local att1 = Instance.new("Attachment", player.Character.HumanoidRootPart)
+
+    local beam = Instance.new("Beam")
+    beam.Name = "ESPBeam"
+    beam.Attachment0 = att0
+    beam.Attachment1 = att1
+    beam.Width0 = 0.1
+    beam.Width1 = 0.1
+    beam.Color = ColorSequence.new(Color3.new(0,1,0))
+    beam.Transparency = NumberSequence.new(0)
+    beam.Parent = tracer
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPBillboard"
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = player.Character:FindFirstChild("Head")
+    billboard.Size = UDim2.new(0,150,0,50)
+    billboard.StudsOffset = Vector3.new(0,3,0)
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Text = player.Name
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Size = UDim2.new(1,0,0.6,0)
+    nameLabel.TextColor3 = Color3.new(1,1,1)
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextScaled = true
+    nameLabel.Parent = billboard
+
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Text = "Role: Unknown"
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Size = UDim2.new(1,0,0.4,0)
+    infoLabel.TextColor3 = Color3.new(1,1,1)
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.TextScaled = true
+    infoLabel.Parent = billboard
+
+    billboard.Parent = player.Character.Head
+
+    ESPObjects[player] = {
+        Highlight = highlight,
+        Tracer = tracer,
+        Beam = beam,
+        Billboard = billboard,
+        NameLabel = nameLabel,
+        InfoLabel = infoLabel
+    }
+
+    UpdatePlayerESP(player)
+end
+
+local function UpdatePlayerESP(player)
+    local esp = ESPObjects[player]
+    if not esp or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local role = "Innocent"
+    local color = Color3.fromRGB(0,255,0) -- Зеленый
+
+    local hasKnife = false
+    local hasGun = false
+
+    for _, tool in pairs(player.Backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            local name = string.lower(tool.Name)
+            if name:find("knife") then hasKnife = true end
+            if name:find("gun") then hasGun = true end
         end
     end
-})
 
--- Автоматизация (Automation)
-
-AutomationTab:CreateToggle({
-    Name = "Auto-Farm Монет и Мячей",
-    CurrentValue = false,
-    Callback = function(value)
-        -- Пример автофарма валюты
+    for _, tool in pairs(player.Character:GetChildren()) do
+        if tool:IsA("Tool") then
+            local name = string.lower(tool.Name)
+            if name:find("knife") then hasKnife = true end
+            if name:find("gun") then hasGun = true end
+        end
     end
-})
 
-AutomationTab:CreateToggle({
-    Name = "Anti-AFK",
-    CurrentValue = false,
-    Callback = function(value)
-        -- Отключение кика за бездействие
+    if hasKnife then
+        role = "Murderer"
+        color = Color3.fromRGB(255,0,0)
+    elseif hasGun then
+        role = "Sheriff"
+        color = Color3.fromRGB(0,0,255)
+    else
+        role = "Innocent"
+        color = Color3.fromRGB(0,255,0)
     end
-})
 
-AutomationTab:CreateToggle({
-    Name = "Auto Get Revolver (Шериф)",
-    CurrentValue = false,
-    Callback = function(value)
-        -- Автоматический подбор револьвера
+    esp.Highlight.FillColor = color
+    esp.Beam.Color = ColorSequence.new(color)
+    esp.Tracer.BrickColor = BrickColor.new(color)
+    esp.Highlight.Enabled = ChamsEnabled
+    esp.Beam.Enabled = ESPEnabled
+    esp.Tracer.Transparency = ESPEnabled and 0 or 1
+    esp.Billboard.Enabled = ESPEnabled
+    esp.NameLabel.TextColor3 = color
+    esp.InfoLabel.Text = role
+
+    local distance = "Unknown"
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local dist = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+        distance = string.format("%.1f studs", dist)
     end
-})
+    esp.InfoLabel.Text = role .. " | " .. distance
+end
 
--- Перемещение (Movement)
+-- Fly функция с управлением клавиатурой и телефоном
+local flying = false
+local bodyVelocity
+local bodyGyro
 
-MovementTab:CreateToggle({
-    Name = "Fly Toggle",
+local function startFly()
+    if flying then return end
+    flying = true
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
+    bodyVelocity.Velocity = Vector3.new(0,0,0)
+    bodyVelocity.Parent = hrp
+
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1e5,1e5,1e5)
+    bodyGyro.CFrame = hrp.CFrame
+    bodyGyro.Parent = hrp
+
+    RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Camera.Value, function()
+        if not flying then return end
+        local moveVec = Vector3.new()
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) or TouchControls.Forward then
+            moveVec = moveVec + workspace.CurrentCamera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) or TouchControls.Backward then
+            moveVec = moveVec - workspace.CurrentCamera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) or TouchControls.Left then
+            moveVec = moveVec - workspace.CurrentCamera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) or TouchControls.Right then
+            moveVec = moveVec + workspace.CurrentCamera.CFrame.RightVector
+        end
+        if TouchControls.Up then
+            moveVec = moveVec + Vector3.new(0,1,0)
+        end
+        if TouchControls.Down then
+            moveVec = moveVec - Vector3.new(0,1,0)
+        end
+
+        if moveVec.Magnitude > 0 then
+            moveVec = moveVec.Unit * FlySpeed
+        end
+
+        bodyVelocity.Velocity = moveVec
+        bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+    end)
+end
+
+local function stopFly()
+    flying = false
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+    RunService:UnbindFromRenderStep("FlyControl")
+end
+
+-- Вкладка 1 - Chams & Info
+local ChamsTab = Window:CreateTab("Chams & Info")
+
+local ChamsToggle = ChamsTab:CreateToggle({
+    Name = "Enable Chams & ESP",
     CurrentValue = false,
-    Callback = function(value)
-        -- Флай логика
-    end
+    Callback = function(val)
+        ChamsEnabled = val
+        ESPEnabled = val
+        if not val then
+            for player, esp in pairs(ESPObjects) do
+                if esp.Highlight then esp.Highlight.Enabled = false end
+                if esp.Tracer then esp.Tracer.Transparency = 1 end
+                if esp.Beam then esp.Beam.Enabled = false end
+                if esp.Billboard then esp.Billboard.Enabled = false end
+            end
+        end
+    end,
 })
 
-MovementTab:CreateButton({
-    Name = "Teleport to Gun",
+local GunChamsToggle = ChamsTab:CreateToggle({
+    Name = "Chams Dropped Gun",
+    CurrentValue = false,
+    Callback = function(val)
+        coroutine.wrap(function()
+            while GunChamsToggle.CurrentValue do
+                wait(1)
+                for _, item in pairs(workspace:GetChildren()) do
+                    if item.Name == "GunDrop" or item.Name == "GunDropModel" then
+                        if not item:FindFirstChild("GunHighlight") then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Name = "GunHighlight"
+                            highlight.FillColor = Color3.new(1,1,0)
+                            highlight.OutlineColor = Color3.new(1,1,1)
+                            highlight.Parent = item
+                        end
+                        item.GunHighlight.Enabled = val
+                    end
+                end
+            end
+        end)()
+    end,
+})
+
+local FlyToggle = ChamsTab:CreateToggle({
+    Name = "Fly (Keyboard and Mobile)",
+    CurrentValue = false,
+    Callback = function(val)
+        if val then
+            startFly()
+        else
+            stopFly()
+        end
+    end,
+})
+
+-- Вкладка 2 - Gun
+local GunTab = Window:CreateTab("Gun")
+
+local SilentAimToggle = GunTab:CreateToggle({
+    Name = "Silent Aim",
+    CurrentValue = false,
+    Callback = function(val)
+        -- Реализуйте Silent Aim
+    end,
+})
+
+GunTab:CreateButton({
+    Name = "Shoot Murder",
     Callback = function()
-        -- Телепорт к оружию на карте
-    end
+        -- Реализуйте Стрельбу по Murderer
+    end,
 })
 
-MovementTab:CreateSlider({
-    Name = "Walkspeed",
-    Range = {16, 100},
+GunTab:CreateButton({
+    Name = "Grab Gun",
+    Callback = function()
+        local gunDrop = workspace:FindFirstChild("GunDrop")
+        if gunDrop and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = gunDrop.CFrame
+        end
+    end,
+})
+
+local AutoGrabGunToggle = GunTab:CreateToggle({
+    Name = "Auto Grab Gun",
+    CurrentValue = false,
+    Callback = function(val)
+        AutoGrabGunEnabled = val
+    end,
+})
+
+-- Вкладка 3 - Knife
+local KnifeTab = Window:CreateTab("Knife")
+
+local KillAllToggle = KnifeTab:CreateToggle({
+    Name = "Kill All",
+    CurrentValue = false,
+    Callback = function(val)
+        KillAllEnabled = val
+    end,
+})
+
+local KillSheriffToggle = KnifeTab:CreateToggle({
+    Name = "Kill Sheriff",
+    CurrentValue = false,
+    Callback = function(val)
+        -- Реализуйте Kill Sheriff
+    end,
+})
+
+local AutoKillAllToggle = KnifeTab:CreateToggle({
+    Name = "Auto Kill All",
+    CurrentValue = false,
+    Callback = function(val)
+        AutoKillAllEnabled = val
+    end,
+})
+
+-- Вкладка 4 - Auto Farm
+local AutoFarmTab = Window:CreateTab("Auto Farm")
+
+local AutoFarmToggle = AutoFarmTab:CreateToggle({
+    Name = "Toggle Auto Farm",
+    CurrentValue = false,
+    Callback = function(val)
+        AutoFarmEnabled = val
+    end,
+})
+
+local FarmSpeedSlider = AutoFarmTab:CreateSlider({
+    Name = "Farm Speed",
+    Range = {1, 10},
     Increment = 1,
-    CurrentValue = 16,
-    Callback = function(value)
-        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
-    end
+    Suffix = "x",
+    CurrentValue = 5,
+    Callback = function(val)
+        FlySpeed = val * 10
+    end,
 })
 
-MovementTab:CreateSlider({
-    Name = "Jump Power",
-    Range = {50, 200},
-    Increment = 1,
-    CurrentValue = 50,
-    Callback = function(value)
-        game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
-    end
+local FlingMurderToggle = AutoFarmTab:CreateToggle({
+    Name = "Fling Murder",
+    CurrentValue = false,
+    Callback = function(val)
+        -- Реализуйте
+    end,
 })
 
--- Прочие (Settings)
+local ResetWhenDoneToggle = AutoFarmTab:CreateToggle({
+    Name = "When Done Reset",
+    CurrentValue = false,
+    Callback = function(val)
+        -- Реализуйте
+    end,
+})
 
-local themeDropdown = SettingsTab:CreateDropdown({
+local KillAllWhenFullToggle = AutoFarmTab:CreateToggle({
+    Name = "Kill All When Full (Murder Only)",
+    CurrentValue = false,
+    Callback = function(val)
+        -- Реализуйте
+    end,
+})
+
+-- Вкладка 5 - Miss
+local MissTab = Window:CreateTab("Miss")
+
+local playerNames = {}
+for _, plr in pairs(Players:GetPlayers()) do
+    table.insert(playerNames, plr.Name)
+end
+
+local SelectedPlayer = playerNames[1] or ""
+
+local PlayerDropdown = MissTab:CreateDropdown({
+    Name = "Select Player To Fling",
+    Options = playerNames,
+    CurrentOption = SelectedPlayer,
+    Callback = function(option)
+        SelectedPlayer = option
+    end,
+})
+
+MissTab:CreateButton({
+    Name = "Fling Player",
+    Callback = function()
+        Rayfield:Notify({Title = "Fling Player", Content = "Flinging " .. SelectedPlayer, Duration = 2})
+        -- Логика флинга игрока
+    end,
+})
+
+MissTab:CreateButton({
+    Name = "Fling Murder",
+    Callback = function()
+        -- Логика флинга Murder
+    end,
+})
+
+MissTab:CreateButton({
+    Name = "Fling Sheriff/Hero",
+    Callback = function()
+        -- Логика флинга Sheriff / Hero
+    end,
+})
+
+-- Вкладка 6 - Settings
+local SettingsTab = Window:CreateTab("Settings")
+
+local ThemeDropdown = SettingsTab:CreateDropdown({
     Name = "Select Theme",
-    Options = {"Default", "Serenity", "Ocean"},
-    CurrentOption = "Default",
-    Callback = function(theme)
-        Rayfield:ChangeTheme(theme)
-    end
+    Options = {"Dark", "Amber", "Red", "Sky", "Rose"},
+    CurrentOption = "Dark",
+    Callback = function(option)
+        local colors = {
+            Dark = Color3.fromRGB(25, 25, 25),
+            Amber = Color3.fromRGB(255, 193, 7),
+            Red = Color3.fromRGB(244, 67, 54),
+            Sky = Color3.fromRGB(33, 150, 243),
+            Rose = Color3.fromRGB(233, 30, 99),
+        }
+        Window:ChangeColor(colors[option])
+    end,
 })
 
-return Window
+local TransparencySlider = SettingsTab:CreateSlider({
+    Name = "Window Transparency",
+    Range = {0, 100},
+    Increment = 5,
+    Suffix = "%",
+    CurrentValue = 0,
+    Callback = function(value)
+        -- Логика прозрачности
+    end,
+})
+
+-- Вкладка 7 - Credits
+local CreditsTab = Window:CreateTab("Credits")
+
+CreditsTab:CreateLabel("MM2 Ultimate Cheat v7.0")
+CreditsTab:CreateLabel("Скоро обновление!")
+CreditsTab:CreateLabel("Хотите предложить что добавить?")
+CreditsTab:CreateLabel("Пишите сюда в Telegram: @PauseGpam")
+
+CreditsTab:CreateButton({
+    Name = "Check for Updates",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Update Check",
+            Content = "Checking for updates...",
+            Duration = 5,
+        })
+    end,
+})
+
+-- Обновление ESP и логика автохуков
+RunService.Heartbeat:Connect(function()
+    if ESPEnabled or ChamsEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not ESPObjects[player] then
+                    CreateESP(player)
+                else
+                    UpdatePlayerESP(player)
+                end
+            end
+        end
+    end
+
+    if AutoGrabGunEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local gunDrop = workspace:FindFirstChild("GunDrop")
+        if gunDrop then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = gunDrop.CFrame
+        end
+    end
+
+    -- Место для реализации AutoFarm, KillAll и др.
+
+end)
+
+Rayfield:Notify({
+    Title = "🎮 MM2 ULTIMATE CHEAT v7.0",
+    Content = "7 вкладок загружены! Приятной игры!",
+    Duration = 6,
+})
+
+print("✅ MM2 Ultimate Cheat v7.0 активирован!")

@@ -1,155 +1,86 @@
--- Подключаем библиотеку Rayfield
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- Интерфейс с использованием Roblox GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MM2CheatHub"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 300, 0, 400)
+Frame.Position = UDim2.new(0, 10, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.Parent = ScreenGui
+
+local UIGridLayout = Instance.new("UIGridLayout")
+UIGridLayout.CellSize = UDim2.new(1, -10, 0, 40)
+UIGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+UIGridLayout.Parent = Frame
+
+local function createToggleButton(name, callback)
+    local btn = Instance.new("TextButton")
+    btn.Text = name
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.AutoButtonColor = true
+    btn.MouseButton1Click:Connect(callback)
+    btn.Parent = Frame
+    return btn
+end
+
+-- Функции чита
+local ESPEnabled = false
+local AutoFarmEnabled = false
+
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 
--- Создаем окно
-local Window = Rayfield:CreateWindow({
-    Name = "MM2 Ultimate Script",
-    LoadingTitle = "Загрузка...",
-    LoadingSubtitle = "запуск функций",
-    ConfigurationSaving = { Enabled = true }
-})
-
--- Настройки
-local Config = {
-    ESP = false,
-    AutoFarm = false,
-    WalkSpeed = 30,
-}
-
-local ESPObjects = {}
-
--- Функция определения роли
-local function GetRole(player)
-    if not player.Character then return "Innocent" end
-    for _, tool in ipairs(player.Backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            if string.lower(tool.Name):find("knife") then
-                return "Murderer"
-            elseif string.lower(tool.Name):find("gun") then
-                return "Sheriff"
-            end
-        end
-    end
-    for _, tool in ipairs(player.Character:GetChildren()) do
-        if tool:IsA("Tool") then
-            if string.lower(tool.Name):find("knife") then
-                return "Murderer"
-            elseif string.lower(tool.Name):find("gun") then
-                return "Sheriff"
-            end
-        end
-    end
-    return "Innocent"
-end
-
--- Создаем ESP
-local function CreateESP(player)
-    if ESPObjects[player] then return end
-    if not player.Character then return end
-
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = player.Character
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0.3
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = player.Character
-
-    ESPObjects[player] = highlight
-end
-
-local function UpdateESP()
-    for player, highlight in pairs(ESPObjects) do
-        if player.Character then
-            local role = GetRole(player)
-            if role == "Murderer" then
-                highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-            elseif role == "Sheriff" then
-                highlight.FillColor = Color3.fromRGB(0, 0, 255)
-                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
-            else
-                highlight.FillColor = Color3.fromRGB(0, 255, 0)
-                highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
-            end
-            highlight.Enabled = Config.ESP
-        else
-            highlight:Destroy()
-            ESPObjects[player] = nil
-        end
-    end
-end
-
--- Автофарм — сбор оружия
-local function AutoFarm()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = LocalPlayer.Character.HumanoidRootPart
-    for _, item in pairs(Workspace:GetChildren()) do
-        if item:IsA("Tool") and item.Handle and (item.Handle.Position - hrp.Position).Magnitude < 20 then
-            firetouchinterest(hrp, item.Handle, 0)
-            firetouchinterest(hrp, item.Handle, 1)
-        end
-    end
-end
-
--- GUI вкладка
-local MainTab = Window:CreateTab("Главная")
-
-MainTab:CreateToggle({
-    Name = "ESP с цветами ролей",
-    CurrentValue = false,
-    Callback = function(value)
-        Config.ESP = value
-        if not value then
-            for _, h in pairs(ESPObjects) do
-                h:Destroy()
-            end
-            ESPObjects = {}
-        end
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "Автофарм оружия",
-    CurrentValue = false,
-    Callback = function(value)
-        Config.AutoFarm = value
-    end
-})
-
-MainTab:CreateSlider({
-    Name = "Скорость ходьбы",
-    Range = {16, 50},
-    Increment = 1,
-    Suffix = " WalkSpeed",
-    CurrentValue = Config.WalkSpeed,
-    Callback = function(value)
-        Config.WalkSpeed = value
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = value
-        end
-    end
-})
-
--- Обновления
-RunService.Heartbeat:Connect(function()
-    if Config.ESP then
+-- Простая подсветка игроков (ESP)
+local function toggleESP()
+    ESPEnabled = not ESPEnabled
+    if ESPEnabled then
         for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                CreateESP(player)
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local box = Instance.new("BoxHandleAdornment")
+                box.Name = "ESPGuiBox"
+                box.Adornee = player.Character.HumanoidRootPart
+                box.Size = Vector3.new(4, 6, 4)
+                box.Color3 = Color3.new(1, 0, 0)
+                box.AlwaysOnTop = true
+                box.Parent = player.Character.HumanoidRootPart
             end
         end
-        UpdateESP()
+    else
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local adornment = player.Character.HumanoidRootPart:FindFirstChild("ESPGuiBox")
+                if adornment then adornment:Destroy() end
+            end
+        end
     end
+end
 
-    if Config.AutoFarm then
-        AutoFarm()
+-- Автофарм простой пример (собирать мячики рядом)
+local function autofarm()
+    while AutoFarmEnabled do
+        local workspace = game:GetService("Workspace")
+        for _, item in pairs(workspace:GetChildren()) do
+            if item.Name == "Coin" or item.Name == "Candy" then
+                local plr = Players.LocalPlayer
+                if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    plr.Character.HumanoidRootPart.CFrame = item.CFrame
+                end
+                wait(0.1)
+            end
+        end
+        wait(1)
     end
+end
 
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = Config.WalkSpeed
+local function toggleAutoFarm()
+    AutoFarmEnabled = not AutoFarmEnabled
+    if AutoFarmEnabled then
+        spawn(autofarm)
     end
-end)
+end
+
+-- Добавляем кнопки для управления функциями
+createToggleButton("Toggle ESP", toggleESP)
+createToggleButton("Toggle AutoFarm", toggleAutoFarm)

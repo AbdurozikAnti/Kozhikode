@@ -1,1 +1,153 @@
+-- Подключение Rayfield для интерфейса
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source.lua"))()
 
+local Window = Rayfield:CreateWindow({
+    Name = "MM2 Cheat by AI",
+    ConfigurationSaving = { Enabled = true, FileName = "MM2CheatConfig" },
+    Discord = { Enabled = false },
+    KeySystem = false
+})
+
+-- Вкладка ESP
+local ESPTab = Window:CreateTab("ESP")
+
+local espEnabled = false
+local espOutline = false
+local espTracers = false
+local playerBoxes = {}
+local playerTracers = {}
+
+local function CreateBox()
+    local box = Drawing.new("Square")
+    box.Thickness = 2
+    box.Color = Color3.fromRGB(0,255,0)
+    box.Filled = false
+    box.Visible = false
+    return box
+end
+
+local function CreateTracer()
+    local line = Drawing.new("Line")
+    line.Thickness = 1
+    line.Color = Color3.fromRGB(255,255,255)
+    line.Visible = false
+    return line
+end
+
+local function GetScreenPos(player)
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local cam = workspace.CurrentCamera
+        local pos, onScreen = cam:WorldToViewportPoint(hrp.Position)
+        return Vector2.new(pos.X, pos.Y), onScreen, hrp.Position
+    end
+    return nil, false, nil
+end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if not espEnabled then
+        for _, box in pairs(playerBoxes) do box.Visible = false end
+        for _, tracer in pairs(playerTracers) do tracer.Visible = false end
+        return
+    end
+
+    local cam = workspace.CurrentCamera
+    local viewportSize = cam.ViewportSize
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local screenPos, onScreen, worldPos = GetScreenPos(player)
+            if onScreen and screenPos then
+                if not playerBoxes[player.Name] then playerBoxes[player.Name] = CreateBox() end
+                if not playerTracers[player.Name] then playerTracers[player.Name] = CreateTracer() end
+
+                local box = playerBoxes[player.Name]
+                local tracer = playerTracers[player.Name]
+
+                local size = 50
+
+                box.Position = Vector2.new(screenPos.X - size/2, screenPos.Y - size/2)
+                box.Size = Vector2.new(size, size)
+                box.Visible = espOutline
+
+                tracer.From = Vector2.new(viewportSize.X/2, viewportSize.Y)
+                tracer.To = screenPos
+                tracer.Visible = espTracers
+            else
+                if playerBoxes[player.Name] then playerBoxes[player.Name].Visible = false end
+                if playerTracers[player.Name] then playerTracers[player.Name].Visible = false end
+            end
+        end
+    end
+end)
+
+ESPTab:CreateToggle({Name = "Включить ESP", CurrentValue = false, Callback = function(val) espEnabled = val end})
+ESPTab:CreateToggle({Name = "Контуры", CurrentValue = false, Callback = function(val) espOutline = val end})
+ESPTab:CreateToggle({Name = "Трейсеры", CurrentValue = false, Callback = function(val) espTracers = val end})
+
+-- Вкладка Автофарм
+local FarmTab = Window:CreateTab("Автофарм")
+
+local autoFarmEnabled = false
+
+FarmTab:CreateToggle({Name = "Авто сбор монет", CurrentValue = false,
+    Callback = function(val)
+        autoFarmEnabled = val
+    end
+})
+
+spawn(function()
+    while true do
+        wait(0.3)
+        if autoFarmEnabled then
+            local character = game.Players.LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local hrp = character.HumanoidRootPart
+                for _, coin in pairs(workspace:GetChildren()) do
+                    if coin.Name == "Coin" and coin:IsA("BasePart") then
+                        hrp.CFrame = CFrame.new(coin.Position)
+                        wait(0.1)
+                    end
+                end
+            end
+        else
+            wait(1)
+        end
+    end
+end)
+
+-- Вкладка Телепорт
+local TPtab = Window:CreateTab("Телепорт")
+local selectedPlayer = nil
+
+local function UpdatePlayerList()
+    local list = {}
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= game.Players.LocalPlayer then
+            table.insert(list, p.Name)
+        end
+    end
+    return list
+end
+
+local dropdown = TPtab:CreateDropdown({
+    Name = "Выберите игрока",
+    Options = UpdatePlayerList(),
+    CurrentOption = nil,
+    Callback = function(val)
+        selectedPlayer = val
+    end
+})
+
+TPtab:CreateButton({
+    Name = "Телепорт к игроку",
+    Callback = function()
+        local player = game.Players:FindFirstChild(selectedPlayer)
+        local character = game.Players.LocalPlayer.Character
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
+        end
+    end
+})
+
+Rayfield:Init()

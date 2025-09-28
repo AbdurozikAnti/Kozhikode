@@ -1,300 +1,155 @@
--- Подключение библиотеки Rayfield (предполагается, что вы заранее загрузили и объявили Rayfield)
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
-
--- Основное окно GUI
-local Window = Rayfield:CreateWindow({
-    Name = "MM2 Multi-Features Script",
-    LoadingTitle = "Загрузка скрипта MM2",
-    LoadingSubtitle = "by AI Assistant",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = nil,
-        FileName = "MM2Config"
-    }
-})
-
--- Фреймы для отображения на экране
+-- Подключаем библиотеку Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
 
--- Цвета ролей
-local RoleColors = {
-    Murderer = Color3.fromRGB(255, 0, 0),
-    Sheriff = Color3.fromRGB(0, 0, 255),
-    Innocent = Color3.fromRGB(0, 255, 0),
+-- Создаем окно
+local Window = Rayfield:CreateWindow({
+    Name = "MM2 Ultimate Script",
+    LoadingTitle = "Загрузка...",
+    LoadingSubtitle = "запуск функций",
+    ConfigurationSaving = { Enabled = true }
+})
+
+-- Настройки
+local Config = {
+    ESP = false,
+    AutoFarm = false,
+    WalkSpeed = 30,
 }
 
--- ESP и трассеры
-local ESP = {}
-ESP.Players = {}
-ESP.Tracers = {}
+local ESPObjects = {}
 
-function ESP:CreateBox(player)
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    local box = Instance.new("BoxHandleAdornment")
-    box.Adornee = player.Character.HumanoidRootPart
-    box.AlwaysOnTop = true
-    box.ZIndex = 10
-    box.Size = Vector3.new(2, 5, 2)
-    box.Transparency = 0.5
-    box.Parent = player.Character.HumanoidRootPart
-    self.Players[player.UserId] = box
-end
-
-function ESP:UpdateBoxColor(player)
-    local box = self.Players[player.UserId]
-    if not box or not player.Character then return end
-    local role = player:FindFirstChild("Role")
-    local color = Color3.new(1, 1, 1)
-    if role then
-        color = RoleColors[role.Value] or color
-    end
-    box.Color3 = color
-end
-
-function ESP:RemoveBox(player)
-    if self.Players[player.UserId] then
-        self.Players[player.UserId]:Destroy()
-        self.Players[player.UserId] = nil
-    end
-end
-
-function ESP:CreateTracer(player)
-    local tracer = Drawing.new("Line")
-    tracer.Color = Color3.fromRGB(255, 255, 255)
-    tracer.Thickness = 2
-    tracer.Transparency = 1
-    self.Tracers[player.UserId] = tracer
-end
-
-function ESP:UpdateTracer(player)
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then 
-        if self.Tracers[player.UserId] then
-            self.Tracers[player.UserId]:Remove()
-            self.Tracers[player.UserId] = nil
+-- Функция определения роли
+local function GetRole(player)
+    if not player.Character then return "Innocent" end
+    for _, tool in ipairs(player.Backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            if string.lower(tool.Name):find("knife") then
+                return "Murderer"
+            elseif string.lower(tool.Name):find("gun") then
+                return "Sheriff"
+            end
         end
-        return 
     end
-    local tracer = self.Tracers[player.UserId]
-    if not tracer then
-        self:CreateTracer(player)
-        tracer = self.Tracers[player.UserId]
+    for _, tool in ipairs(player.Character:GetChildren()) do
+        if tool:IsA("Tool") then
+            if string.lower(tool.Name):find("knife") then
+                return "Murderer"
+            elseif string.lower(tool.Name):find("gun") then
+                return "Sheriff"
+            end
+        end
     end
-    local cam = Workspace.CurrentCamera
-    local rootPos = cam.CFrame.Position
-    local screenPos, onScreen = cam:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-    if onScreen then
-        tracer.From = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y)
-        tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-        local role = player:FindFirstChild("Role")
-        if role then
-            tracer.Color = RoleColors[role.Value] or Color3.new(1, 1, 1)
+    return "Innocent"
+end
+
+-- Создаем ESP
+local function CreateESP(player)
+    if ESPObjects[player] then return end
+    if not player.Character then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = player.Character
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0.3
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = player.Character
+
+    ESPObjects[player] = highlight
+end
+
+local function UpdateESP()
+    for player, highlight in pairs(ESPObjects) do
+        if player.Character then
+            local role = GetRole(player)
+            if role == "Murderer" then
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+            elseif role == "Sheriff" then
+                highlight.FillColor = Color3.fromRGB(0, 0, 255)
+                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+            else
+                highlight.FillColor = Color3.fromRGB(0, 255, 0)
+                highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+            end
+            highlight.Enabled = Config.ESP
         else
-            tracer.Color = Color3.new(1, 1, 1)
-        end
-        tracer.Visible = true
-    else
-        tracer.Visible = false
-    end
-end
-
-function ESP:ClearTracers()
-    for _, tracer in pairs(self.Tracers) do
-        tracer:Remove()
-    end
-    self.Tracers = {}
-end
-
-function ESP:UpdateAll()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            if not self.Players[player.UserId] then
-                self:CreateBox(player)
-            end
-            self:UpdateBoxColor(player)
-            self:UpdateTracer(player)
+            highlight:Destroy()
+            ESPObjects[player] = nil
         end
     end
 end
 
--- Функции убийства и стрельбы
-function KillAll()
-    local character = LocalPlayer.Character
-    if not character then return end
-    local knife = character:FindFirstChildOfClass("Tool")
-    if not knife or knife.Name ~= "Knife" then return end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
-            local humanoid = player.Character.Humanoid
-            if humanoid.Health > 0 then
-                -- Телепортируйтесь к игроку и наносите урон ножом
-                character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
-                knife:Activate()
-                wait(0.1)
-            end
-        end
-    end
-end
-
-function ShootMurder()
-    local character = LocalPlayer.Character
-    if not character then return end
-    local gun = character:FindFirstChildOfClass("Tool")
-    if not gun or gun.Name ~= "Gun" then return end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
-            local role = player:FindFirstChild("Role")
-            if role and role.Value == "Murderer" then
-                gun:Activate()
-                wait(0.1)
-            end
-        end
-    end
-end
-
--- Дополнительные функции
-local walkingSpeed = 30
-local jumpPower = 100
-local autoJumpEnabled = false
-local autoPickupEnabled = false
-
-function AutoPickupWeapons()
+-- Автофарм — сбор оружия
+local function AutoFarm()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = LocalPlayer.Character.HumanoidRootPart
     for _, item in pairs(Workspace:GetChildren()) do
-        if item:IsA("Tool") and item.Handle and (item.Handle.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude < 20 then
-            firetouchinterest(LocalPlayer.Character.HumanoidRootPart, item.Handle, 0)
-            firetouchinterest(LocalPlayer.Character.HumanoidRootPart, item.Handle, 1)
+        if item:IsA("Tool") and item.Handle and (item.Handle.Position - hrp.Position).Magnitude < 20 then
+            firetouchinterest(hrp, item.Handle, 0)
+            firetouchinterest(hrp, item.Handle, 1)
         end
     end
 end
 
--- Таймер раунда
-local TimerLabel = Instance.new("TextLabel")
-TimerLabel.Size = UDim2.new(0, 200, 0, 50)
-TimerLabel.Position = UDim2.new(0.5, -100, 0, 10)
-TimerLabel.BackgroundTransparency = 0.5
-TimerLabel.BackgroundColor3 = Color3.new(0, 0, 0)
-TimerLabel.TextColor3 = Color3.new(1,1,1)
-TimerLabel.TextScaled = true
-TimerLabel.Parent = game.CoreGui
+-- GUI вкладка
+local MainTab = Window:CreateTab("Главная")
 
-local roundTime = 300 -- пример времени
-
-spawn(function()
-    while wait(1) do
-        if roundTime <= 0 then
-            TimerLabel.Text = "Round ended"
-            break
-        end
-        TimerLabel.Text = "Round Time: "..roundTime.."s"
-        roundTime = roundTime - 1
-    end
-end)
-
--- Панель управления через Rayfield
-local ESPToggle = Window:CreateToggle({
-    Name = "Включить ESP",
-    CurrentValue = true,
-    Flag = "espToggle",
+MainTab:CreateToggle({
+    Name = "ESP с цветами ролей",
+    CurrentValue = false,
     Callback = function(value)
+        Config.ESP = value
         if not value then
-            for _, box in pairs(ESP.Players) do
-                box:Destroy()
+            for _, h in pairs(ESPObjects) do
+                h:Destroy()
             end
-            ESP.Players = {}
-            ESP:ClearTracers()
+            ESPObjects = {}
         end
     end
 })
 
-local KillAllToggle = Window:CreateToggle({
-    Name = "Kill All",
+MainTab:CreateToggle({
+    Name = "Автофарм оружия",
     CurrentValue = false,
-    Flag = "killAllToggle"
+    Callback = function(value)
+        Config.AutoFarm = value
+    end
 })
 
-local ShootMurderToggle = Window:CreateToggle({
-    Name = "Auto Shoot Murderer",
-    CurrentValue = false,
-    Flag = "shootMurderToggle"
-})
-
-local SpeedSlider = Window:CreateSlider({
+MainTab:CreateSlider({
     Name = "Скорость ходьбы",
-    Range = {16, 120},
+    Range = {16, 50},
     Increment = 1,
     Suffix = " WalkSpeed",
-    CurrentValue = walkingSpeed,
-    Flag = "speedSlider",
+    CurrentValue = Config.WalkSpeed,
     Callback = function(value)
-        walkingSpeed = value
+        Config.WalkSpeed = value
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = walkingSpeed
+            LocalPlayer.Character.Humanoid.WalkSpeed = value
         end
     end
 })
 
-local JumpPowerSlider = Window:CreateSlider({
-    Name = "Сила прыжка",
-    Range = {50, 200},
-    Increment = 1,
-    Suffix = " JumpPower",
-    CurrentValue = jumpPower,
-    Flag = "jumpPowerSlider",
-    Callback = function(value)
-        jumpPower = value
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.JumpPower = jumpPower
-        end
-    end
-})
-
-local AutoJumpToggle = Window:CreateToggle({
-    Name = "Авто прыжок",
-    CurrentValue = false,
-    Flag = "autoJumpToggle",
-    Callback = function(value)
-        autoJumpEnabled = value
-    end
-})
-
-local AutoPickupToggle = Window:CreateToggle({
-    Name = "Авто подбор оружия",
-    CurrentValue = false,
-    Flag = "autoPickupToggle",
-    Callback = function(value)
-        autoPickupEnabled = value
-    end
-})
-
--- Цикл для обновления функций
+-- Обновления
 RunService.Heartbeat:Connect(function()
-    if ESPToggle.CurrentValue then
-        ESP:UpdateAll()
-    end
-
-    if KillAllToggle.CurrentValue then
-        KillAll()
-    end
-
-    if ShootMurderToggle.CurrentValue then
-        ShootMurder()
-    end
-
-    if autoJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        if LocalPlayer.Character.Humanoid.FloorMaterial ~= Enum.Material.Air then
-            LocalPlayer.Character.Humanoid.Jump = true
+    if Config.ESP then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                CreateESP(player)
+            end
         end
+        UpdateESP()
     end
 
-    if autoPickupEnabled then
-        AutoPickupWeapons()
+    if Config.AutoFarm then
+        AutoFarm()
     end
 
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = walkingSpeed
-        LocalPlayer.Character.Humanoid.JumpPower = jumpPower
+        LocalPlayer.Character.Humanoid.WalkSpeed = Config.WalkSpeed
     end
 end)

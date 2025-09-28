@@ -1,7 +1,7 @@
 -- █▀▀ █▀▀█ █▀▀▄ █▀▀ ▀▀█▀▀ █▀▀ █▀▀█ █▀▀▄ 
 -- █░░ █▄▄█ █▀▀▄ █▀▀ ░░█░░ █▀▀ █▄▄█ █▀▀▄ 
 -- ▀▀▀ ▀░░▀ ▀▀▀░ ▀▀▀ ░░▀░░ ▀▀▀ ▀░░▀ ▀▀▀░ 
--- ДОРАБОТАННЫЙ ESP + ОБЫЧНЫЕ ТРЕЙСЕРЫ (от вас до игрока), ТАЙМЕРЫ И АФК УБРАНЫ
+-- MM2 ULTIMATE v6.1 | Полная современная версия с вкладками
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
@@ -9,10 +9,13 @@ local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
+-- ВЕРСИЯ
+local SCRIPT_VERSION = "v0.1"
+
 local Window = Rayfield:CreateWindow({
-    Name = "🔥 MM2 ULTIMATE v6.1",
-    LoadingTitle = "Загрузка ESP и трейсеры...",
-    LoadingSubtitle = "Таймеры и АФК убраны",
+    Name = "Murder Mystery 2",
+    LoadingTitle = "Загрузка меню...",
+    LoadingSubtitle = SCRIPT_VERSION,
     ConfigurationSaving = { Enabled = true },
     KeySystem = false
 })
@@ -21,6 +24,7 @@ local CheatConfig = {
     ESP = {
         Enabled = false,
         Tracers = false,
+        ShowDistance = true,
         Colors = {
             Murderer = Color3.new(1, 0, 0),
             Sheriff = Color3.new(0, 0, 1),
@@ -30,11 +34,13 @@ local CheatConfig = {
     Fly = {
         Enabled = false,
         Speed = 50
+    },
+    Autofarm = {
+        Enabled = false
     }
 }
 
-local ESPObjects = {}
-local TracerObjects = {}
+local ESPObjects, TracerObjects = {}, {}
 
 -- 👁️ ESP: определение роли
 local function GetPlayerRole(player)
@@ -88,7 +94,6 @@ local function RefreshPlayerESP(player)
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
-    textLabel.Text = player.Name
     textLabel.TextColor3 = Color3.new(1, 1, 1)
     textLabel.TextSize = 14
     textLabel.Font = Enum.Font.GothamBold
@@ -107,13 +112,17 @@ end
 
 local function UpdateESP()
     for player, espData in pairs(ESPObjects) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local role = GetPlayerRole(player)
             local color = CheatConfig.ESP.Colors[role]
+            local distance = math.floor(
+                (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+            )
+            local dist_str = CheatConfig.ESP.ShowDistance and (" [" .. tostring(distance) .. "m]") or ""
             espData.Highlight.FillColor = color
             espData.Highlight.OutlineColor = color
             espData.TextLabel.TextColor3 = color
-            espData.TextLabel.Text = player.Name .. " - " .. role
+            espData.TextLabel.Text = player.Name .. " - " .. role .. dist_str
             espData.Highlight.Enabled = CheatConfig.ESP.Enabled
             espData.Billboard.Enabled = CheatConfig.ESP.Enabled
         else
@@ -237,12 +246,19 @@ local function ToggleFly()
     end
 end
 
--- UI
-local MainTab = Window:CreateTab("🔥 Главная", 4483362458)
-local ESPSection = MainTab:CreateSection("👁️ Улучшенный ESP")
+--------------------------------------------------------------------------------
+-- МЕНЮ: вкладки и секции как на скрине
+--------------------------------------------------------------------------------
 
-MainTab:CreateToggle({
-    Name = "🎯 Включить ESP (цвета по ролям)",
+-- 1. Вкладка ESP/Chams & Info
+local ESPTab = Window:CreateTab("Chams & info", 0)
+local InfoSection = ESPTab:CreateSection("Info")
+local InfoLabel = ESPTab:CreateLabel({
+    Name = "Info",
+    Content = "Murder is: nil\nSheriff/Hero is: nil\nGun Dropped: No"
+})
+ESPTab:CreateToggle({
+    Name = "Chams (ESP игроки по ролям + дистанция)",
     CurrentValue = false,
     Callback = function(Value)
         CheatConfig.ESP.Enabled = Value
@@ -261,9 +277,13 @@ MainTab:CreateToggle({
         end
     end
 })
-
-MainTab:CreateToggle({
-    Name = "📏 Трейсеры к игрокам (от вас до игроков)",
+ESPTab:CreateToggle({
+    Name = "Показывать дистанцию до игроков",
+    CurrentValue = true,
+    Callback = function(Value) CheatConfig.ESP.ShowDistance = Value end
+})
+ESPTab:CreateToggle({
+    Name = "Трейсеры (линии до игроков)",
     CurrentValue = false,
     Callback = function(Value)
         CheatConfig.ESP.Tracers = Value
@@ -282,31 +302,10 @@ MainTab:CreateToggle({
     end
 })
 
-local MoveSection = MainTab:CreateSection("🚀 Исправленный полет")
-MainTab:CreateToggle({
-    Name = "🕊️ Включить полет (WASD + Space/Shift)",
-    CurrentValue = false,
-    Callback = function(Value)
-        CheatConfig.Fly.Enabled = Value
-        ToggleFly()
-    end
-})
-
-MainTab:CreateSlider({
-    Name = "💨 Скорость полета",
-    Range = {10, 100},
-    Increment = 5,
-    Suffix = "speed",
-    CurrentValue = 50,
-    Callback = function(Value)
-        CheatConfig.Fly.Speed = Value
-    end
-})
-
--- Утилиты (оставляем)
-local UtilSection = MainTab:CreateSection("🔧 Утилиты")
-MainTab:CreateButton({
-    Name = "🔫 Взять пушку",
+-- 2. Вкладка Gun
+local GunTab = Window:CreateTab("Gun", 0)
+GunTab:CreateButton({
+    Name = "Взять пушку",
     Callback = function()
         local gun = Workspace:FindFirstChild("GunDrop")
         if gun then
@@ -315,8 +314,10 @@ MainTab:CreateButton({
     end
 })
 
-MainTab:CreateButton({
-    Name = "💀 Kill All",
+-- 3. Вкладка Knife
+local KnifeTab = Window:CreateTab("Knife", 0)
+KnifeTab:CreateButton({
+    Name = "Auto Stab (Телекилл)",
     Callback = function()
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -327,8 +328,65 @@ MainTab:CreateButton({
     end
 })
 
+-- 4. Вкладка Autofarm
+local AutofarmTab = Window:CreateTab("Autofarm", 0)
+AutofarmTab:CreateToggle({
+    Name = "Autofarm (пример)",
+    CurrentValue = false,
+    Callback = function(Value) CheatConfig.Autofarm.Enabled = Value end
+})
+
+-- 5. Вкладка Misc
+local MiscTab = Window:CreateTab("Misc", 0)
+MiscTab:CreateButton({ Name = "Orbit", Callback = function() --[[Orbit функция]] end })
+MiscTab:CreateButton({ Name = "Fake Dash (Q)", Callback = function() --[[Fake Dash функция]] end })
+MiscTab:CreateButton({ Name = "No Slide Dash EndLag", Callback = function() --[[No Slide Dash функция]] end })
+MiscTab:CreateButton({ Name = "Keyboard", Callback = function() --[[Keyboard функция]] end })
+
+-- 6. Вкладка Settings
+local SettingsTab = Window:CreateTab("Settings", 0)
+SettingsTab:CreateToggle({
+    Name = "Включить полет (WASD + Space/Shift)",
+    CurrentValue = false,
+    Callback = function(Value)
+        CheatConfig.Fly.Enabled = Value
+        ToggleFly()
+    end
+})
+SettingsTab:CreateSlider({
+    Name = "Скорость полета",
+    Range = {10, 100},
+    Increment = 5,
+    Suffix = "speed",
+    CurrentValue = 50,
+    Callback = function(Value) CheatConfig.Fly.Speed = Value end
+})
+
+--------------------------------------------------------------------------------
+-- Обновление ИНФО
+--------------------------------------------------------------------------------
+local function UpdateInfo()
+    local murderer, sheriff = "nil", "nil"
+    local gun_dropped = false
+    for _, player in pairs(Players:GetPlayers()) do
+        local role = GetPlayerRole(player)
+        if role == "Murderer" then murderer = player.Name end
+        if role == "Sheriff" then sheriff = player.Name end
+    end
+    local gun = Workspace:FindFirstChild("GunDrop")
+    gun_dropped = gun and "Yes" or "No"
+    local info =
+        "Murder is: " .. tostring(murderer) ..
+        "\nSheriff/Hero is: " .. tostring(sheriff) ..
+        "\nGun Dropped: " .. gun_dropped
+    InfoLabel:Set(info)
+end
+
+--------------------------------------------------------------------------------
 -- Основной цикл обновления (без таймеров и АФК!)
+--------------------------------------------------------------------------------
 RunService.Heartbeat:Connect(function()
+    UpdateInfo()
     if CheatConfig.ESP.Enabled then
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -339,7 +397,6 @@ RunService.Heartbeat:Connect(function()
         end
         UpdateESP()
     end
-
     if CheatConfig.ESP.Tracers then
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -356,15 +413,9 @@ end)
 SetupAllESP()
 
 Rayfield:Notify({
-    Title = "🔥 MM2 ULTIMATE v6.1 ЗАГРУЖЕН!",
-    Content = "ESP не пропадает, трейсеры обычные, таймер и АФК убраны!",
-    Duration = 6,
+    Title = "MM2 ULTIMATE " .. SCRIPT_VERSION .. " ЗАГРУЖЕН!",
+    Content = "Современное меню, вкладки, ESP с дистанцией, трейсеры, авто-обновление инфы!",
+    Duration = 8,
 })
 
-print([[
-🔥 MM2 ULTIMATE v6.1 АКТИВИРОВАН!
-✅ ESP с цветами по ролям (не пропадает)
-✅ Обычные трейсеры (от вас до игроков)
-✅ Исправленный полет
-✅ Таймер и АФК убраны!
-]])
+print("MM2 ULTIMATE v0.1 АКТИВИРОВАН!")

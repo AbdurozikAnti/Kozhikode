@@ -1,132 +1,183 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local camera = workspace.CurrentCamera
 
--- Создаем ScreenGui и Frame для UI
+-- Создаем GUI
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HighlightGui"
+screenGui.Name = "EpicHighlightGui"
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-frame.Name = "HighlightFrame"
-frame.Size = UDim2.new(0, 220, 0, 190)
-frame.Position = UDim2.new(0, 10, 0, 10)
-frame.BackgroundColor3 = Color3.new(1, 1, 1)
-frame.BackgroundTransparency = 0.9
+frame.Name = "MainFrame"
+frame.Size = UDim2.new(0, 240, 0, 220)
+frame.Position = UDim2.new(0, 15, 0, 15)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BackgroundTransparency = 0.4
+frame.BorderSizePixel = 0
 frame.Parent = screenGui
+frame.ClipsDescendants = true
 
--- Универсальная функция создания кнопок
-local function createButton(name, text, position, color)
+local function createButton(name, text, pos, color)
     local btn = Instance.new("TextButton")
     btn.Name = name
-    btn.Size = UDim2.new(1, -20, 0, 50)
-    btn.Position = position
-    btn.Text = text
+    btn.Size = UDim2.new(1, -30, 0, 50)
+    btn.Position = pos
     btn.BackgroundColor3 = color
-    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 20
+    btn.AutoButtonColor = true
     btn.Parent = frame
+
+    -- Плавное изменение цвета при наведении
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = color:Lighter(0.4)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
+    end)
     return btn
 end
 
--- Создаем кнопки
-local highlightButton = createButton("HighlightButton", "Highlight Players", UDim2.new(0, 10, 0, 10), Color3.fromRGB(0, 128, 255))
-local respawnButton = createButton("RespawnButton", "Handle Respawn", UDim2.new(0, 10, 0, 70), Color3.fromRGB(255, 0, 0))
-local extraButton = createButton("ExtraButton", "Create Balls", UDim2.new(0, 10, 0, 130), Color3.fromRGB(0, 255, 0))
+local highlightButton = createButton("HighlightBtn", "Toggle Highlight", UDim2.new(0, 15, 0, 15), Color3.fromRGB(0, 120, 255))
+local respawnButton = createButton("RespawnBtn", "Handle Respawn", UDim2.new(0, 15, 0, 75), Color3.fromRGB(255, 50, 50))
+local extraButton = createButton("ExtraBtn", "Create Balls", UDim2.new(0, 15, 0, 135), Color3.fromRGB(0, 200, 120))
 
--- Проверка наличия ульты (замените под вашу логику)
+-- Проверка наличия ульты (замените под свою логику)
 local function hasUltimate()
-    local ultimate = player:FindFirstChild("UltimateActive")
-    return ultimate and ultimate.Value
+    local ult = player:FindFirstChild("UltimateActive")
+    return ult and ult.Value
 end
 
--- Создание или обновление Chams подсветки для персонажа
-local function ensureHighlight(character, color)
-    if not character then return end
-    local highlight = character:FindFirstChild("ChamsHighlight")
-    if not highlight then
-        highlight = Instance.new("Highlight")
-        highlight.Name = "ChamsHighlight"
-        highlight.Adornee = character
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = character
-    end
-    highlight.Enabled = true
-    highlight.FillColor = color
-    highlight.OutlineColor = color:Lighter()
+-- Эффект пульсации цвета (возвращает циклически изменяющийся цвет)
+local pulseSpeed = 2.5
+local function getPulseColor(baseColor)
+    local t = tick() * pulseSpeed
+    local alpha = (math.sin(t) + 1) / 2 -- 0..1 пульсирование
+    return baseColor:Lerp(Color3.new(1,1,1), alpha * 0.5)
 end
 
--- Отключение подсветки персонажа
-local function disableHighlight(character)
-    if not character then return end
-    local highlight = character:FindFirstChild("ChamsHighlight")
-    if highlight then
-        highlight.Enabled = false
-    end
-end
+-- Словарь для BillboardGui, Highlight и Tracers
+local visuals = {}
 
--- Создание или обновление BillboardGui с именем игрока
-local function setupBillboardGui(playerToHighlight)
-    local character = playerToHighlight.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+-- Создаем/обновляем визуальные эффекты для игрока
+local function updatePlayerVisuals(p)
+    if not p.Character or not p.Character:FindFirstChild("HumanoidRootPart") then return end
 
-    local billboardGui = character:FindFirstChild("BillboardGui")
-    if not billboardGui then
-        billboardGui = Instance.new("BillboardGui")
-        billboardGui.Name = "BillboardGui"
-        billboardGui.Adornee = character.HumanoidRootPart
-        billboardGui.Size = UDim2.new(0, 200, 0, 50)
-        billboardGui.StudsOffset = Vector3.new(0, 3, 0)
-        billboardGui.AlwaysOnTop = true
-        billboardGui.Parent = character
+    local char = p.Character
+    local hrp = char.HumanoidRootPart
+
+    -- BillboardGui с именем
+    local bill = char:FindFirstChild("BillboardGui")
+    if not bill then
+        bill = Instance.new("BillboardGui")
+        bill.Name = "BillboardGui"
+        bill.Size = UDim2.new(0, 230, 0, 40)
+        bill.Adornee = hrp
+        bill.StudsOffset = Vector3.new(0, 2.5, 0)
+        bill.AlwaysOnTop = true
+        bill.Parent = char
 
         local textLabel = Instance.new("TextLabel")
         textLabel.Name = "NameLabel"
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
         textLabel.BackgroundTransparency = 1
-        textLabel.TextStrokeTransparency = 0.5
-        textLabel.Text = playerToHighlight.Name
-        textLabel.Parent = billboardGui
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.TextSize = 20
+        textLabel.TextStrokeTransparency = 0.4
+        textLabel.Parent = bill
+    end
+
+    -- Highlight для Chams
+    local highlight = char:FindFirstChild("ChamsHighlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "ChamsHighlight"
+        highlight.Adornee = char
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = char
+    end
+
+    -- Трассеры (line) в 2D UI
+    local tracer = visuals[p.UserId]
+    if not tracer then
+        tracer = Instance.new("Frame")
+        tracer.Name = "TracerLine_" .. p.Name
+        tracer.Size = UDim2.new(0, 2, 0, 0)
+        tracer.AnchorPoint = Vector2.new(0.5, 1)
+        tracer.BackgroundColor3 = Color3.new(1,0,0)
+        tracer.BorderSizePixel = 0
+        tracer.Parent = screenGui
+        visuals[p.UserId] = tracer
+    end
+
+    -- Обновляем цвета и текст
+    local baseColor = hasUltimate() and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(200, 200, 200)
+    local pulseCol = getPulseColor(baseColor)
+    bill.NameLabel.Text = p.Name
+    bill.NameLabel.TextColor3 = pulseCol
+    bill.NameLabel.TextStrokeColor3 = baseColor
+
+    highlight.Enabled = true
+    highlight.FillColor = pulseCol
+    highlight.OutlineColor = baseColor:Lighter()
+
+    -- Обновляем трассер с позицией
+    local vector, onScreen = camera:WorldToViewportPoint(hrp.Position)
+    if onScreen then
+        tracer.Visible = true
+        local screenPos = Vector2.new(vector.X, vector.Y)
+        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
+        local length = (screenCenter - screenPos).Magnitude
+
+        tracer.Size = UDim2.new(0, 2, 0, length)
+        tracer.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
+        local angle = math.deg(math.atan2(screenCenter.Y - screenPos.Y, screenCenter.X - screenPos.X)) - 90
+        tracer.Rotation = angle
+        tracer.BackgroundColor3 = pulseCol
+    else
+        tracer.Visible = false
     end
 end
 
--- Основная функция подсветки всех игроков и добавления Chams
-local function highlightPlayers()
+-- Удаляем визуалы игрока, если он покинул игру
+local function cleanupVisuals(userId)
+    if visuals[userId] then
+        visuals[userId]:Destroy()
+        visuals[userId] = nil
+    end
+end
+
+-- Главная функция обновления всех визуалов
+local function updateAllVisuals()
     for _, p in pairs(Players:GetPlayers()) do
-        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            setupBillboardGui(p)
-
-            local billboardGui = p.Character:FindFirstChild("BillboardGui")
-            local textLabel = billboardGui and billboardGui:FindFirstChild("NameLabel")
-
-            if textLabel then
-                local targetColor = hasUltimate() and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(255, 255, 255)
-                TweenService:Create(textLabel, TweenInfo.new(0.3), {TextColor3 = targetColor}):Play()
-            end
-
-            if hasUltimate() then
-                ensureHighlight(p.Character, Color3.fromRGB(255, 0, 0))
+        if p ~= player then
+            if p.Character and p.Character.PrimaryPart then
+                updatePlayerVisuals(p)
             else
-                disableHighlight(p.Character)
+                cleanupVisuals(p.UserId)
             end
+        else
+            -- Для локального игрока очищаем трассер
+            cleanupVisuals(p.UserId)
         end
     end
 end
 
--- Обработка респавна с телепортом на место смерти и сообщением в чат
+-- Функция респавна с телепортом на последнее место смерти и сообщением в чат
 local function handleRespawn()
     local function onCharacterAdded(character)
         local humanoid = character:WaitForChild("Humanoid")
         local head = character:FindFirstChild("Head")
-
-        local function onDied()
+        humanoid.Died:Connect(function()
             if character.PrimaryPart then
                 player:SetAttribute("LastDeathPosition", character.PrimaryPart.Position)
             end
-        end
-
-        humanoid.Died:Connect(onDied)
+        end)
 
         local lastPos = player:GetAttribute("LastDeathPosition")
         if lastPos then
@@ -145,10 +196,10 @@ local function handleRespawn()
     end
 end
 
--- Создание анимированных синих и красных шаров вокруг игрока
+-- Создаем анимированные синие и красные шары вокруг игрока
 local function createBalls()
     local character = player.Character or player.CharacterAdded:Wait()
-    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    local hrp = character:WaitForChild("HumanoidRootPart")
 
     local blueBall = Instance.new("Part")
     blueBall.Shape = Enum.PartType.Ball
@@ -156,7 +207,7 @@ local function createBalls()
     blueBall.Color = Color3.fromRGB(0, 0, 255)
     blueBall.Anchored = true
     blueBall.CanCollide = false
-    blueBall.Position = humanoidRootPart.Position + Vector3.new(0, 40, 0)
+    blueBall.Position = hrp.Position + Vector3.new(0, 40, 0)
     blueBall.Parent = workspace
 
     local redBall = Instance.new("Part")
@@ -165,7 +216,7 @@ local function createBalls()
     redBall.Color = Color3.fromRGB(255, 0, 0)
     redBall.Anchored = true
     redBall.CanCollide = false
-    redBall.Position = humanoidRootPart.Position
+    redBall.Position = hrp.Position
     redBall.Parent = workspace
 
     local redBallLight = Instance.new("PointLight", redBall)
@@ -174,28 +225,46 @@ local function createBalls()
     redBallLight.Brightness = 2
 
     local tweenInfo = TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true)
-    local goal = {Position = humanoidRootPart.Position + Vector3.new(0, 10, 0)}
+    local goal = {Position = hrp.Position + Vector3.new(0, 10, 0)}
     local tween = TweenService:Create(redBall, tweenInfo, goal)
     tween:Play()
 end
 
--- Подключаем кнопки к функциям
+-- Тоггл подсветки по кнопке
+local highlightEnabled = false
 highlightButton.MouseButton1Click:Connect(function()
-    highlightPlayers()
+    highlightEnabled = not highlightEnabled
+    if not highlightEnabled then
+        -- Отключаем подсветки и трассеры
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character then
+                local highlight = p.Character:FindFirstChild("ChamsHighlight")
+                if highlight then highlight.Enabled = false end
+
+                local billboard = p.Character:FindFirstChild("BillboardGui")
+                if billboard then
+                    local label = billboard:FindFirstChild("NameLabel")
+                    if label then label.TextColor3 = Color3.fromRGB(255,255,255) end
+                end
+            end
+            cleanupVisuals(p.UserId)
+        end
+    end
 end)
 
-respawnButton.MouseButton1Click:Connect(function()
-    handleRespawn()
-end)
+respawnButton.MouseButton1Click:Connect(handleRespawn)
+extraButton.MouseButton1Click:Connect(createBalls)
 
-extraButton.MouseButton1Click:Connect(function()
-    createBalls()
-end)
-
--- Автоматическое обновление подсветки с Chams каждые 0.5 секунды
-spawn(function()
-    while true do
-        highlightPlayers()
-        wait(0.5)
+-- Постоянное обновление с оптимизацией
+RunService.RenderStepped:Connect(function()
+    if highlightEnabled or hasUltimate() then
+        updateAllVisuals()
+    else
+        -- Очищаем визуалы если подсветка выключена и ульты нет
+        for _, p in pairs(Players:GetPlayers()) do
+            if visuals[p.UserId] then
+                visuals[p.UserId].Visible = false
+            end
+        end
     end
 end)

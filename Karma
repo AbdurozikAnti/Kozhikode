@@ -1,188 +1,368 @@
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local camera = workspace.CurrentCamera
-
--- Создаем GUI
+-- Create and set up the ScreenGui
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "EpicHighlightGui"
-screenGui.Parent = playerGui
+screenGui.Name = "EnhancedGui"
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
+-- Create and set up the Frame
 local frame = Instance.new("Frame")
 frame.Name = "MainFrame"
-frame.Size = UDim2.new(0, 240, 0, 220)
-frame.Position = UDim2.new(0, 15, 0, 15)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-frame.BackgroundTransparency = 0.4
+frame.Size = UDim2.new(0, 220, 0, 280)
+frame.Position = UDim2.new(0, 10, 0, 10)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+frame.BackgroundTransparency = 0.2
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
-frame.ClipsDescendants = true
 
-local function createButton(name, text, pos, color)
-    local btn = Instance.new("TextButton")
-    btn.Name = name
-    btn.Size = UDim2.new(1, -30, 0, 50)
-    btn.Position = pos
-    btn.BackgroundColor3 = color
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 20
-    btn.AutoButtonColor = true
-    btn.Parent = frame
+-- Make frame draggable
+local dragging = false
+local dragInput, dragStart, startPos
 
-    -- Плавное изменение цвета при наведении
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = color:Lighter(0.4)}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
-    end)
-    return btn
-end
-
-local highlightButton = createButton("HighlightBtn", "Toggle Highlight", UDim2.new(0, 15, 0, 15), Color3.fromRGB(0, 120, 255))
-local respawnButton = createButton("RespawnBtn", "Handle Respawn", UDim2.new(0, 15, 0, 75), Color3.fromRGB(255, 50, 50))
-local extraButton = createButton("ExtraBtn", "Create Balls", UDim2.new(0, 15, 0, 135), Color3.fromRGB(0, 200, 120))
-
--- Проверка наличия ульты (замените под свою логику)
-local function hasUltimate()
-    local ult = player:FindFirstChild("UltimateActive")
-    return ult and ult.Value
-end
-
--- Эффект пульсации цвета (возвращает циклически изменяющийся цвет)
-local pulseSpeed = 2.5
-local function getPulseColor(baseColor)
-    local t = tick() * pulseSpeed
-    local alpha = (math.sin(t) + 1) / 2 -- 0..1 пульсирование
-    return baseColor:Lerp(Color3.new(1,1,1), alpha * 0.5)
-end
-
--- Словарь для BillboardGui, Highlight и Tracers
-local visuals = {}
-
--- Создаем/обновляем визуальные эффекты для игрока
-local function updatePlayerVisuals(p)
-    if not p.Character or not p.Character:FindFirstChild("HumanoidRootPart") then return end
-
-    local char = p.Character
-    local hrp = char.HumanoidRootPart
-
-    -- BillboardGui с именем
-    local bill = char:FindFirstChild("BillboardGui")
-    if not bill then
-        bill = Instance.new("BillboardGui")
-        bill.Name = "BillboardGui"
-        bill.Size = UDim2.new(0, 230, 0, 40)
-        bill.Adornee = hrp
-        bill.StudsOffset = Vector3.new(0, 2.5, 0)
-        bill.AlwaysOnTop = true
-        bill.Parent = char
-
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Name = "NameLabel"
-        textLabel.BackgroundTransparency = 1
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.Font = Enum.Font.GothamBold
-        textLabel.TextSize = 20
-        textLabel.TextStrokeTransparency = 0.4
-        textLabel.Parent = bill
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
     end
+end)
 
-    -- Highlight для Chams
-    local highlight = char:FindFirstChild("ChamsHighlight")
-    if not highlight then
-        highlight = Instance.new("Highlight")
-        highlight.Name = "ChamsHighlight"
-        highlight.Adornee = char
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = char
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
     end
+end)
 
-    -- Трассеры (line) в 2D UI
-    local tracer = visuals[p.UserId]
-    if not tracer then
-        tracer = Instance.new("Frame")
-        tracer.Name = "TracerLine_" .. p.Name
-        tracer.Size = UDim2.new(0, 2, 0, 0)
-        tracer.AnchorPoint = Vector2.new(0.5, 1)
-        tracer.BackgroundColor3 = Color3.new(1,0,0)
-        tracer.BorderSizePixel = 0
-        tracer.Parent = screenGui
-        visuals[p.UserId] = tracer
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
+end)
 
-    -- Обновляем цвета и текст
-    local baseColor = hasUltimate() and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(200, 200, 200)
-    local pulseCol = getPulseColor(baseColor)
-    bill.NameLabel.Text = p.Name
-    bill.NameLabel.TextColor3 = pulseCol
-    bill.NameLabel.TextStrokeColor3 = baseColor
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.Text = "🎯 ENHANCED MENU"
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 14
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
 
-    highlight.Enabled = true
-    highlight.FillColor = pulseCol
-    highlight.OutlineColor = baseColor:Lighter()
+-- Create and set up the Highlight Button
+local highlightButton = Instance.new("TextButton")
+highlightButton.Name = "HighlightButton"
+highlightButton.Size = UDim2.new(1, -20, 0, 40)
+highlightButton.Position = UDim2.new(0, 10, 0, 40)
+highlightButton.Text = "Billboard Players"
+highlightButton.BackgroundColor3 = Color3.fromRGB(0, 128, 255)
+highlightButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+highlightButton.TextSize = 12
+highlightButton.Font = Enum.Font.Gotham
+highlightButton.Parent = frame
 
-    -- Обновляем трассер с позицией
-    local vector, onScreen = camera:WorldToViewportPoint(hrp.Position)
-    if onScreen then
-        tracer.Visible = true
-        local screenPos = Vector2.new(vector.X, vector.Y)
-        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
-        local length = (screenCenter - screenPos).Magnitude
+-- Create and set up the Respawn Button
+local respawnButton = Instance.new("TextButton")
+respawnButton.Name = "RespawnButton"
+respawnButton.Size = UDim2.new(1, -20, 0, 40)
+respawnButton.Position = UDim2.new(0, 10, 0, 90)
+respawnButton.Text = "Handle Respawn"
+respawnButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+respawnButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+respawnButton.TextSize = 12
+respawnButton.Font = Enum.Font.Gotham
+respawnButton.Parent = frame
 
-        tracer.Size = UDim2.new(0, 2, 0, length)
-        tracer.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
-        local angle = math.deg(math.atan2(screenCenter.Y - screenPos.Y, screenCenter.X - screenPos.X)) - 90
-        tracer.Rotation = angle
-        tracer.BackgroundColor3 = pulseCol
+-- Create and set up the Extra Button
+local extraButton = Instance.new("TextButton")
+extraButton.Name = "ExtraButton"
+extraButton.Size = UDim2.new(1, -20, 0, 40)
+extraButton.Position = UDim2.new(0, 10, 0, 140)
+extraButton.Text = "Create Balls"
+extraButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+extraButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+extraButton.TextSize = 12
+extraButton.Font = Enum.Font.Gotham
+extraButton.Parent = frame
+
+-- Create and set up the ESP Button
+local espButton = Instance.new("TextButton")
+espButton.Name = "ESPButton"
+espButton.Size = UDim2.new(1, -20, 0, 40)
+espButton.Position = UDim2.new(0, 10, 0, 190)
+espButton.Text = "Toggle ESP"
+espButton.BackgroundColor3 = Color3.fromRGB(180, 0, 180)
+espButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+espButton.TextSize = 12
+espButton.Font = Enum.Font.Gotham
+espButton.Parent = frame
+
+-- Create and set up the Lines Button
+local linesButton = Instance.new("TextButton")
+linesButton.Name = "LinesButton"
+linesButton.Size = UDim2.new(1, -20, 0, 40)
+linesButton.Position = UDim2.new(0, 10, 0, 240)
+linesButton.Text = "Toggle Lines"
+linesButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+linesButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+linesButton.TextSize = 12
+linesButton.Font = Enum.Font.Gotham
+linesButton.Parent = frame
+
+-- ESP System
+local ESPEnabled = false
+local LinesEnabled = false
+local ESPObjects = {}
+
+-- Function to get player color based on team or random
+local function getPlayerColor(player)
+    if player.Team then
+        return player.Team.TeamColor.Color
     else
-        tracer.Visible = false
+        -- Generate consistent color based on user ID
+        local seed = player.UserId
+        return Color3.fromHSV((seed % 360) / 360, 0.8, 1)
     end
 end
 
--- Удаляем визуалы игрока, если он покинул игру
-local function cleanupVisuals(userId)
-    if visuals[userId] then
-        visuals[userId]:Destroy()
-        visuals[userId] = nil
-    end
+-- Function to create ESP for a player
+local function createESP(player)
+    if player == game.Players.LocalPlayer then return end
+    
+    local esp = {
+        Box = Drawing.new("Square"),
+        Tracer = Drawing.new("Line"),
+        Name = Drawing.new("Text"),
+        Distance = Drawing.new("Text"),
+        Health = Drawing.new("Text")
+    }
+    
+    -- Configure box
+    esp.Box.Thickness = 2
+    esp.Box.Filled = false
+    esp.Box.ZIndex = 1
+    
+    -- Configure tracer
+    esp.Tracer.Thickness = 1
+    esp.Tracer.ZIndex = 1
+    
+    -- Configure name
+    esp.Name.Size = 16
+    esp.Name.Center = true
+    esp.Name.Outline = true
+    esp.Name.ZIndex = 2
+    
+    -- Configure distance
+    esp.Distance.Size = 14
+    esp.Distance.Outline = true
+    esp.Distance.ZIndex = 2
+    
+    -- Configure health
+    esp.Health.Size = 14
+    esp.Health.Outline = true
+    esp.Health.ZIndex = 2
+    
+    ESPObjects[player] = esp
 end
 
--- Главная функция обновления всех визуалов
-local function updateAllVisuals()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player then
-            if p.Character and p.Character.PrimaryPart then
-                updatePlayerVisuals(p)
+-- Function to update ESP
+local function updateESP()
+    if not ESPEnabled and not LinesEnabled then return end
+    
+    for player, esp in pairs(ESPObjects) do
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local character = player.Character
+            local rootPart = character.HumanoidRootPart
+            local humanoid = character:FindFirstChild("Humanoid")
+            
+            local position, onScreen = game.Workspace.CurrentCamera:WorldToViewportPoint(rootPart.Position)
+            
+            if onScreen then
+                local color = getPlayerColor(player)
+                local size = Vector2.new(2000 / position.Z, 3000 / position.Z)
+                
+                -- Update box
+                if ESPEnabled then
+                    esp.Box.Size = size
+                    esp.Box.Position = Vector2.new(position.X - size.X / 2, position.Y - size.Y / 2)
+                    esp.Box.Color = color
+                    esp.Box.Visible = true
+                else
+                    esp.Box.Visible = false
+                end
+                
+                -- Update tracer
+                if LinesEnabled then
+                    esp.Tracer.From = Vector2.new(game.Workspace.CurrentCamera.ViewportSize.X / 2, game.Workspace.CurrentCamera.ViewportSize.Y)
+                    esp.Tracer.To = Vector2.new(position.X, position.Y)
+                    esp.Tracer.Color = color
+                    esp.Tracer.Visible = true
+                else
+                    esp.Tracer.Visible = false
+                end
+                
+                -- Update name
+                esp.Name.Text = player.Name
+                esp.Name.Position = Vector2.new(position.X, position.Y - size.Y / 2 - 20)
+                esp.Name.Color = color
+                esp.Name.Visible = ESPEnabled
+                
+                -- Update distance
+                local distance = math.floor((game.Players.LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude)
+                esp.Distance.Text = distance .. "m"
+                esp.Distance.Position = Vector2.new(position.X, position.Y + size.Y / 2 + 5)
+                esp.Distance.Color = Color3.new(1, 1, 1)
+                esp.Distance.Visible = ESPEnabled
+                
+                -- Update health
+                if humanoid then
+                    esp.Health.Text = "HP: " .. math.floor(humanoid.Health)
+                    esp.Health.Position = Vector2.new(position.X, position.Y + size.Y / 2 + 25)
+                    esp.Health.Color = Color3.new(1, 1, 0)
+                    esp.Health.Visible = ESPEnabled
+                else
+                    esp.Health.Visible = false
+                end
             else
-                cleanupVisuals(p.UserId)
+                -- Hide if off screen
+                esp.Box.Visible = false
+                esp.Tracer.Visible = false
+                esp.Name.Visible = false
+                esp.Distance.Visible = false
+                esp.Health.Visible = false
             end
         else
-            -- Для локального игрока очищаем трассер
-            cleanupVisuals(p.UserId)
+            -- Hide if character doesn't exist
+            esp.Box.Visible = false
+            esp.Tracer.Visible = false
+            esp.Name.Visible = false
+            esp.Distance.Visible = false
+            esp.Health.Visible = false
         end
     end
 end
 
--- Функция респавна с телепортом на последнее место смерти и сообщением в чат
+-- Function to remove ESP for a player
+local function removeESP(player)
+    if ESPObjects[player] then
+        for _, drawing in pairs(ESPObjects[player]) do
+            drawing:Remove()
+        end
+        ESPObjects[player] = nil
+    end
+end
+
+-- Function to toggle ESP
+local function toggleESP()
+    ESPEnabled = not ESPEnabled
+    espButton.BackgroundColor3 = ESPEnabled and Color3.fromRGB(120, 0, 120) or Color3.fromRGB(180, 0, 180)
+    
+    if ESPEnabled then
+        -- Create ESP for all existing players
+        for _, player in pairs(game.Players:GetPlayers()) do
+            createESP(player)
+        end
+    else
+        -- Hide all ESP but keep objects
+        for _, esp in pairs(ESPObjects) do
+            esp.Box.Visible = false
+            esp.Name.Visible = false
+            esp.Distance.Visible = false
+            esp.Health.Visible = false
+        end
+    end
+end
+
+-- Function to toggle Lines
+local function toggleLines()
+    LinesEnabled = not LinesEnabled
+    linesButton.BackgroundColor3 = LinesEnabled and Color3.fromRGB(200, 120, 0) or Color3.fromRGB(255, 165, 0)
+    
+    if LinesEnabled then
+        -- Ensure ESP objects exist
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if not ESPObjects[player] then
+                createESP(player)
+            end
+        end
+    else
+        -- Hide all lines
+        for _, esp in pairs(ESPObjects) do
+            esp.Tracer.Visible = false
+        end
+    end
+end
+
+-- Function to highlight players
+local function highlightPlayers()
+    local player = game.Players.LocalPlayer
+
+    -- Iterate through all players
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            -- Create a BillboardGui if it doesn't exist
+            local billboardGui = p.Character:FindFirstChild("BillboardGui")
+            if not billboardGui then
+                billboardGui = Instance.new("BillboardGui")
+                billboardGui.Name = "BillboardGui"
+                billboardGui.Adornee = p.Character.HumanoidRootPart
+                billboardGui.Size = UDim2.new(0, 200, 0, 50)
+                billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+                billboardGui.AlwaysOnTop = true
+                billboardGui.Parent = p.Character
+
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.Text = p.Name
+                textLabel.BackgroundTransparency = 1
+                textLabel.TextColor3 = getPlayerColor(p)
+                textLabel.TextStrokeTransparency = 0.5
+                textLabel.TextSize = 14
+                textLabel.Font = Enum.Font.GothamBold
+                textLabel.Parent = billboardGui
+
+                print("BillboardGui created for", p.Name)
+            else
+                print("BillboardGui already exists for", p.Name)
+            end
+        else
+            print("Character or HumanoidRootPart missing for", p.Name)
+        end
+    end
+end
+
+-- Function to handle the player's respawn
 local function handleRespawn()
+    local player = game.Players.LocalPlayer
+
+    -- Function to handle the player's character addition
     local function onCharacterAdded(character)
         local humanoid = character:WaitForChild("Humanoid")
         local head = character:FindFirstChild("Head")
-        humanoid.Died:Connect(function()
-            if character.PrimaryPart then
-                player:SetAttribute("LastDeathPosition", character.PrimaryPart.Position)
-            end
-        end)
 
-        local lastPos = player:GetAttribute("LastDeathPosition")
-        if lastPos then
-            character:SetPrimaryPartCFrame(CFrame.new(lastPos))
-            player:SetAttribute("LastDeathPosition", nil)
+        -- Function to handle the player's death
+        local function onCharacterDied()
+            -- Save the position where the player died
+            player:SetAttribute("LastDeathPosition", character.PrimaryPart.Position)
+        end
+
+        -- Connect the death event
+        humanoid.Died:Connect(onCharacterDied)
+
+        -- Teleport the player to the last death position if it exists
+        local lastDeathPosition = player:GetAttribute("LastDeathPosition")
+        if lastDeathPosition then
+            -- Set the character's position to the saved position
+            character:SetPrimaryPartCFrame(CFrame.new(lastDeathPosition))
+            player:SetAttribute("LastDeathPosition", nil) -- Clear the attribute
+
+            -- Make the character say a message in the chat
             if head then
                 local chatService = game:GetService("Chat")
                 chatService:Chat(head, "Reverse Cursed Technique", Enum.ChatColor.Red)
@@ -190,81 +370,89 @@ local function handleRespawn()
         end
     end
 
+    -- Connect the CharacterAdded event
     player.CharacterAdded:Connect(onCharacterAdded)
+
+    -- Ensure the script handles cases where the character might already exist when the script runs
     if player.Character then
         onCharacterAdded(player.Character)
     end
 end
 
--- Создаем анимированные синие и красные шары вокруг игрока
+-- Function to create the blue and red balls
 local function createBalls()
+    local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
-    local hrp = character:WaitForChild("HumanoidRootPart")
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
+    -- Create the blue ball
     local blueBall = Instance.new("Part")
-    blueBall.Shape = Enum.PartType.Ball
+    blueBall.Name = "BlueBall"
     blueBall.Size = Vector3.new(10, 10, 10)
     blueBall.Color = Color3.fromRGB(0, 0, 255)
+    blueBall.Material = Enum.Material.Neon
     blueBall.Anchored = true
     blueBall.CanCollide = false
-    blueBall.Position = hrp.Position + Vector3.new(0, 40, 0)
-    blueBall.Parent = workspace
+    blueBall.Position = humanoidRootPart.Position + Vector3.new(0, 40, 0)
+    blueBall.Parent = Workspace
 
+    -- Create blue ball light
+    local blueLight = Instance.new("PointLight")
+    blueLight.Color = Color3.fromRGB(0, 0, 255)
+    blueLight.Range = 25
+    blueLight.Brightness = 3
+    blueLight.Parent = blueBall
+
+    -- Create the red ball
     local redBall = Instance.new("Part")
-    redBall.Shape = Enum.PartType.Ball
+    redBall.Name = "RedBall"
     redBall.Size = Vector3.new(5, 5, 5)
     redBall.Color = Color3.fromRGB(255, 0, 0)
+    redBall.Material = Enum.Material.Neon
     redBall.Anchored = true
     redBall.CanCollide = false
-    redBall.Position = hrp.Position
-    redBall.Parent = workspace
+    redBall.Position = humanoidRootPart.Position
+    redBall.Parent = Workspace
 
-    local redBallLight = Instance.new("PointLight", redBall)
+    -- Create red ball light
+    local redBallLight = Instance.new("PointLight")
+    redBallLight.Parent = redBall
     redBallLight.Color = Color3.fromRGB(255, 0, 0)
     redBallLight.Range = 20
     redBallLight.Brightness = 2
 
+    -- Create a tween to make the red ball move up
+    local tweenService = game:GetService("TweenService")
     local tweenInfo = TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true)
-    local goal = {Position = hrp.Position + Vector3.new(0, 10, 0)}
-    local tween = TweenService:Create(redBall, tweenInfo, goal)
+    local goal = {Position = humanoidRootPart.Position + Vector3.new(0, 10, 0)}
+    local tween = tweenService:Create(redBall, tweenInfo, goal)
     tween:Play()
 end
 
--- Тоггл подсветки по кнопке
-local highlightEnabled = false
-highlightButton.MouseButton1Click:Connect(function()
-    highlightEnabled = not highlightEnabled
-    if not highlightEnabled then
-        -- Отключаем подсветки и трассеры
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character then
-                local highlight = p.Character:FindFirstChild("ChamsHighlight")
-                if highlight then highlight.Enabled = false end
-
-                local billboard = p.Character:FindFirstChild("BillboardGui")
-                if billboard then
-                    local label = billboard:FindFirstChild("NameLabel")
-                    if label then label.TextColor3 = Color3.fromRGB(255,255,255) end
-                end
-            end
-            cleanupVisuals(p.UserId)
-        end
-    end
-end)
-
+-- Connect button click events
+highlightButton.MouseButton1Click:Connect(highlightPlayers)
 respawnButton.MouseButton1Click:Connect(handleRespawn)
 extraButton.MouseButton1Click:Connect(createBalls)
+espButton.MouseButton1Click:Connect(toggleESP)
+linesButton.MouseButton1Click:Connect(toggleLines)
 
--- Постоянное обновление с оптимизацией
-RunService.RenderStepped:Connect(function()
-    if highlightEnabled or hasUltimate() then
-        updateAllVisuals()
-    else
-        -- Очищаем визуалы если подсветка выключена и ульты нет
-        for _, p in pairs(Players:GetPlayers()) do
-            if visuals[p.UserId] then
-                visuals[p.UserId].Visible = false
-            end
-        end
-    end
+-- Player management
+game.Players.PlayerAdded:Connect(function(player)
+    createESP(player)
 end)
+
+game.Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
+-- Initialize ESP for existing players
+for _, player in pairs(game.Players:GetPlayers()) do
+    createESP(player)
+end
+
+-- Update ESP every frame
+game:GetService("RunService").RenderStepped:Connect(updateESP)
+
+print("🎯 Enhanced menu loaded!")
+print("📱 Features: ESP, Lines, Billboards, Respawn System, Special Effects")
+print("💡 Drag the window to move it")

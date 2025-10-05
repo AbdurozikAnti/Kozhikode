@@ -1,39 +1,250 @@
--- Библиотека функций для читов
-local CheatLib = {}
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
-function CheatLib.SetWalkSpeed(speed)
-    local player = game.Players.LocalPlayer
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.WalkSpeed = speed
-    end
+local Window = Rayfield:CreateWindow({
+    Name = "MM2 Ultimate Cheat",
+    LoadingTitle = "Loading MM2 Ultimate Cheat",
+    ConfigFolder = "MM2UltimateCheat"
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local ESPEnabled = false
+local AutoFarmEnabled = false
+local InfiniteAmmoEnabled = false
+local SpeedHackEnabled = false
+local AimbotEnabled = false
+local KillAuraEnabled = false
+
+local ESPObjects = {}
+
+local RoleColors = {
+    Innocent = Color3.fromRGB(0, 255, 0),
+    Murderer = Color3.fromRGB(255, 0, 0),
+    Sheriff  = Color3.fromRGB(0, 0, 255),
+    Unknown  = Color3.fromRGB(255, 255, 255),
+}
+
+local function GetRoleColor(role)
+    return RoleColors[role] or RoleColors.Unknown
 end
 
-function CheatLib.InfiniteAmmo()
-    local player = game.Players.LocalPlayer
-    -- Точный путь к патронам зависит от игры, тут пример
-    if player.Backpack:FindFirstChild("Gun") then
-        local gun = player.Backpack.Gun
-        gun.Ammo.Value = math.huge
-    end
+local function CreateESPForPlayer(plr)
+    if ESPObjects[plr] then return end
+    if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "ESPBox"
+    box.Adornee = plr.Character.HumanoidRootPart
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Size = Vector3.new(2, 5, 1)
+    box.Transparency = 0.5
+    box.Parent = plr.Character.HumanoidRootPart
+
+    local textLabel = Instance.new("BillboardGui", plr.Character.HumanoidRootPart)
+    textLabel.Name = "ESPName"
+    textLabel.Adornee = plr.Character.HumanoidRootPart
+    textLabel.Size = UDim2.new(0, 200, 0, 50)
+    textLabel.AlwaysOnTop = true
+
+    local text = Instance.new("TextLabel", textLabel)
+    text.Size = UDim2.new(1, 0, 1, 0)
+    text.BackgroundTransparency = 1
+    text.TextColor3 = Color3.new(1, 1, 1)
+    text.TextStrokeColor3 = Color3.new(0, 0, 0)
+    text.TextStrokeTransparency = 0
+    text.TextScaled = true
+    text.Font = Enum.Font.SourceSansBold
+    text.Text = ""
+
+    ESPObjects[plr] = {box = box, label = text}
 end
 
-function CheatLib.ShowPlayers()
-    for _, plr in pairs(game.Players:GetPlayers()) do
-        if plr ~= game.Players.LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            -- Добавить ESP или выделение
-            local highlight = Instance.new("Highlight", plr.Character)
-            highlight.FillColor = Color3.new(1,0,0)
-            highlight.OutlineColor = Color3.new(1,1,1)
+local function UpdateESP()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local role = plr:GetAttribute("Role") or "Unknown"
+            local color = GetRoleColor(role)
+            CreateESPForPlayer(plr)
+            local espData = ESPObjects[plr]
+
+            espData.box.Color3 = color
+            espData.box.Size = Vector3.new(2, 5, 1)
+            espData.label.Text = string.format("%s [%s]\nDist: %d studs", plr.Name, role, math.floor((plr.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude))
+            espData.label.TextColor3 = color
+        else
+            if ESPObjects[plr] then
+                if ESPObjects[plr].box then ESPObjects[plr].box:Destroy() end
+                if ESPObjects[plr].label then ESPObjects[plr].label:Destroy() end
+                ESPObjects[plr] = nil
+            end
         end
     end
 end
 
--- Ваш основной скрипт читов
-local function Main()
-    CheatLib.SetWalkSpeed(50)       -- Увеличиваем скорость
-    CheatLib.InfiniteAmmo()         -- Бесконечные патроны
-    CheatLib.ShowPlayers()          -- Подсветка игроков
-    print("Cheat Loaded")
+local function AutoFarm()
+    while AutoFarmEnabled do
+        local ball = workspace:FindFirstChild("Ball")
+        if ball and ball.Position and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(ball.Position) * CFrame.new(0, 3, 0)
+        end
+        wait(0.5)
+    end
 end
 
-Main()
+local function InfiniteAmmo()
+    while InfiniteAmmoEnabled do
+        local backpack = LocalPlayer.Backpack
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") and item:FindFirstChild("Ammo") then
+                    item.Ammo.Value = math.huge
+                end
+            end
+        end
+        wait(1)
+    end
+end
+
+local function SpeedHack()
+    while SpeedHackEnabled do
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = 50
+        end
+        wait(0.5)
+    end
+    -- Возврат стандартной скорости
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16
+    end
+end
+
+local function GetNearestEnemy()
+    local nearest = nil
+    local shortestDist = math.huge
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return nil end
+    local lpPos = LocalPlayer.Character.HumanoidRootPart.Position
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local role = plr:GetAttribute("Role") or "Unknown"
+            if role == "Murderer" then
+                local dist = (plr.Character.HumanoidRootPart.Position - lpPos).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    nearest = plr
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function Aimbot()
+    while AimbotEnabled do
+        local target = GetNearestEnemy()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local camera = workspace.CurrentCamera
+            local targetPos = target.Character.HumanoidRootPart.Position
+            local cameraPos = camera.CFrame.Position
+            local direction = (targetPos - cameraPos).Unit
+            local newCFrame = CFrame.new(cameraPos, cameraPos + direction)
+            camera.CFrame = camera.CFrame:Lerp(newCFrame, 0.3)
+        end
+        wait(0.03)
+    end
+end
+
+local function KillAura()
+    while KillAuraEnabled do
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local pos = LocalPlayer.Character.HumanoidRootPart.Position
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local role = plr:GetAttribute("Role") or "Unknown"
+                    local dist = (plr.Character.HumanoidRootPart.Position - pos).Magnitude
+                    if role == "Murderer" and dist <= 10 then
+                        local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                        if tool and tool:FindFirstChild("RemoteEvent") then
+                            tool.RemoteEvent:FireServer(plr.Character.HumanoidRootPart)
+                        end
+                    end
+                end
+            end
+        end
+        wait(0.1)
+    end
+end
+
+local ESPToggle = Window:CreateToggle({
+    Name = "Toggle ESP",
+    CurrentValue = false,
+    Callback = function(value)
+        ESPEnabled = value
+        if value then
+            RunService:BindToRenderStep("MM2ESP", 501, UpdateESP)
+        else
+            RunService:UnbindFromRenderStep("MM2ESP")
+            for plr, espData in pairs(ESPObjects) do
+                if espData.box then espData.box:Destroy() end
+                if espData.label then espData.label:Destroy() end
+            end
+            ESPObjects = {}
+        end
+    end,
+})
+
+local AutoFarmToggle = Window:CreateToggle({
+    Name = "AutoFarm Ball",
+    CurrentValue = false,
+    Callback = function(value)
+        AutoFarmEnabled = value
+        if value then spawn(AutoFarm) end
+    end,
+})
+
+local InfiniteAmmoToggle = Window:CreateToggle({
+    Name = "Infinite Ammo",
+    CurrentValue = false,
+    Callback = function(value)
+        InfiniteAmmoEnabled = value
+        if value then spawn(InfiniteAmmo) end
+    end,
+})
+
+local SpeedHackToggle = Window:CreateToggle({
+    Name = "Speed Hack",
+    CurrentValue = false,
+    Callback = function(value)
+        SpeedHackEnabled = value
+        if value then spawn(SpeedHack)
+        else
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            end
+        end
+    end,
+})
+
+local AimbotToggle = Window:CreateToggle({
+    Name = "Aimbot",
+    CurrentValue = false,
+    Callback = function(value)
+        AimbotEnabled = value
+        if value then spawn(Aimbot) end
+    end,
+})
+
+local KillAuraToggle = Window:CreateToggle({
+    Name = "Kill Aura",
+    CurrentValue = false,
+    Callback = function(value)
+        KillAuraEnabled = value
+        if value then spawn(KillAura) end
+    end,
+})
+
+Rayfield:LoadConfiguration()
+print("MM2 Ultimate Cheat Loaded")

@@ -1,4 +1,12 @@
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+-- Загружаем библиотеку Rayfield (упрощённая загрузка с обработкой ошибок)
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
+end)
+
+if not success then
+    warn("Не удалось загрузить Rayfield. Проверьте соединение и executor.")
+    return
+end
 
 local Window = Rayfield:CreateWindow({
     Name = "MM2 Ultimate Cheat",
@@ -41,6 +49,7 @@ local function CreateESPForPlayer(plr)
     box.ZIndex = 10
     box.Size = Vector3.new(2, 5, 1)
     box.Transparency = 0.5
+    box.Color3 = GetRoleColor(plr:GetAttribute("Role") or "Unknown")
     box.Parent = plr.Character.HumanoidRootPart
 
     local textLabel = Instance.new("BillboardGui", plr.Character.HumanoidRootPart)
@@ -52,7 +61,7 @@ local function CreateESPForPlayer(plr)
     local text = Instance.new("TextLabel", textLabel)
     text.Size = UDim2.new(1, 0, 1, 0)
     text.BackgroundTransparency = 1
-    text.TextColor3 = Color3.new(1, 1, 1)
+    text.TextColor3 = box.Color3
     text.TextStrokeColor3 = Color3.new(0, 0, 0)
     text.TextStrokeTransparency = 0
     text.TextScaled = true
@@ -65,15 +74,16 @@ end
 local function UpdateESP()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local role = plr:GetAttribute("Role") or "Unknown"
-            local color = GetRoleColor(role)
             CreateESPForPlayer(plr)
             local espData = ESPObjects[plr]
+            local role = plr:GetAttribute("Role") or "Unknown"
+            local color = GetRoleColor(role)
 
             espData.box.Color3 = color
-            espData.box.Size = Vector3.new(2, 5, 1)
-            espData.label.Text = string.format("%s [%s]\nDist: %d studs", plr.Name, role, math.floor((plr.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude))
             espData.label.TextColor3 = color
+            espData.box.Size = Vector3.new(2, 5, 1)
+            espData.label.Text = string.format("%s [%s]\nDist: %d", plr.Name, role,
+                math.floor((plr.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude))
         else
             if ESPObjects[plr] then
                 if ESPObjects[plr].box then ESPObjects[plr].box:Destroy() end
@@ -115,7 +125,6 @@ local function SpeedHack()
         end
         wait(0.5)
     end
-    -- Возврат стандартной скорости
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = 16
     end
@@ -178,9 +187,12 @@ local function KillAura()
     end
 end
 
-local ESPToggle = Window:CreateToggle({
+-- GUI переключатели
+
+Window:CreateToggle({
     Name = "Toggle ESP",
     CurrentValue = false,
+    Flag = "ESPToggle",
     Callback = function(value)
         ESPEnabled = value
         if value then
@@ -196,27 +208,30 @@ local ESPToggle = Window:CreateToggle({
     end,
 })
 
-local AutoFarmToggle = Window:CreateToggle({
+Window:CreateToggle({
     Name = "AutoFarm Ball",
     CurrentValue = false,
+    Flag = "AutoFarmToggle",
     Callback = function(value)
         AutoFarmEnabled = value
         if value then spawn(AutoFarm) end
     end,
 })
 
-local InfiniteAmmoToggle = Window:CreateToggle({
+Window:CreateToggle({
     Name = "Infinite Ammo",
     CurrentValue = false,
+    Flag = "InfiniteAmmoToggle",
     Callback = function(value)
         InfiniteAmmoEnabled = value
         if value then spawn(InfiniteAmmo) end
     end,
 })
 
-local SpeedHackToggle = Window:CreateToggle({
+Window:CreateToggle({
     Name = "Speed Hack",
     CurrentValue = false,
+    Flag = "SpeedHackToggle",
     Callback = function(value)
         SpeedHackEnabled = value
         if value then spawn(SpeedHack)
@@ -228,18 +243,20 @@ local SpeedHackToggle = Window:CreateToggle({
     end,
 })
 
-local AimbotToggle = Window:CreateToggle({
+Window:CreateToggle({
     Name = "Aimbot",
     CurrentValue = false,
+    Flag = "AimbotToggle",
     Callback = function(value)
         AimbotEnabled = value
         if value then spawn(Aimbot) end
     end,
 })
 
-local KillAuraToggle = Window:CreateToggle({
+Window:CreateToggle({
     Name = "Kill Aura",
     CurrentValue = false,
+    Flag = "KillAuraToggle",
     Callback = function(value)
         KillAuraEnabled = value
         if value then spawn(KillAura) end
